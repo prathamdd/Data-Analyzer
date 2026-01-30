@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FPL League Analyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --surface2: #243044;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --accent: #3fb950;
+      --accent-dim: #238636;
+      --danger: #f85149;
+      --gold: #d4a853;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin: 0 0 0.25rem;
+      background: linear-gradient(135deg, var(--accent), #7ee787);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .subtitle { color: var(--text-muted); font-size: 0.95rem; margin: 0; }
+    .search {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+    }
+    .search input {
+      flex: 1;
+      min-width: 200px;
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--surface2);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 1rem;
+    }
+    .search input::placeholder { color: var(--text-muted); }
+    .search input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(63, 185, 80, 0.2);
+    }
+    .search button {
+      padding: 0.75rem 1.5rem;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    .search button:hover { background: #46c35a; }
+    .search button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .error {
+      background: rgba(248, 81, 73, 0.15);
+      border: 1px solid var(--danger);
+      color: #ff7b72;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+    }
+    .loading { text-align: center; color: var(--text-muted); padding: 2rem; }
+    .league-name {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      color: var(--text);
+    }
+    .insights-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--surface2);
+      border-radius: 10px;
+      padding: 1rem;
+    }
+    .stat-card .label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-card .value { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+    .standings-wrap {
+      overflow-x: auto;
+      border-radius: 10px;
+      border: 1px solid var(--surface2);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    th, td { padding: 0.75rem 1rem; text-align: left; }
+    th {
+      background: var(--surface2);
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    tr { border-bottom: 1px solid var(--surface2); }
+    tr:last-child { border-bottom: none; }
+    tr:hover { background: rgba(63, 185, 80, 0.06); }
+    .movement-up { color: var(--accent); }
+    .movement-down { color: var(--danger); }
+    .movement-same { color: var(--text-muted); }
+    .rank-1 { color: var(--gold); font-weight: 700; }
+    .rank-2 { color: #c0c0c0; font-weight: 600; }
+    .rank-3 { color: #cd7f32; font-weight: 600; }
+    .help {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+    }
+    .help a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>FPL League Analyzer</h1>
+      <p class="subtitle">Enter your classic league ID to see standings and insights</p>
+    </header>
+    <div class="search">
+      <input type="text" id="leagueId" placeholder="e.g. 314" autocomplete="off">
+      <button type="button" id="fetchBtn">Analyze league</button>
+    </div>
+    <p class="help">Find your league ID in the URL when you open your league on <a href="https://fantasy.premierleague.com" target="_blank" rel="noopener">fantasy.premierleague.com</a> (Leagues → your league).</p>
+    <div id="error" class="error" hidden></div>
+    <div id="loading" class="loading" hidden>Loading league data…</div>
+    <div id="results" hidden>
+      <div class="league-name" id="leagueName"></div>
+      <div class="insights-grid" id="insightsGrid"></div>
+      <div class="standings-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Team</th>
+              <th>Manager</th>
+              <th>Total pts</th>
+              <th>GW pts</th>
+              <th>Movement</th>
+            </tr>
+          </thead>
+          <tbody id="standingsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <script>
+    const leagueIdEl = document.getElementById('leagueId');
+    const fetchBtn = document.getElementById('fetchBtn');
+    const errorEl = document.getElementById('error');
+    const loadingEl = document.getElementById('loading');
+    const resultsEl = document.getElementById('results');
+    const leagueNameEl = document.getElementById('leagueName');
+    const insightsGrid = document.getElementById('insightsGrid');
+    const standingsBody = document.getElementById('standingsBody');
+
+    function showError(msg) {
+      errorEl.textContent = msg;
+      errorEl.hidden = false;
+      resultsEl.hidden = true;
+    }
+    function hideError() {
+      errorEl.hidden = true;
+    }
+    function setLoading(on) {
+      loadingEl.hidden = !on;
+      fetchBtn.disabled = on;
+    }
+
+    function movementClass(m) {
+      if (m === 'up') return 'movement-up';
+      if (m === 'down') return 'movement-down';
+      return 'movement-same';
+    }
+    function movementLabel(m) {
+      if (m === 'up') return '↑';
+      if (m === 'down') return '↓';
+      return '−';
+    }
+    function rankClass(rank) {
+      if (rank === 1) return 'rank-1';
+      if (rank === 2) return 'rank-2';
+      if (rank === 3) return 'rank-3';
+      return '';
+    }
+
+    fetchBtn.addEventListener('click', async () => {
+      const id = leagueIdEl.value.trim();
+      if (!id) {
+        showError('Please enter a league ID.');
+        return;
+      }
+      hideError();
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/insights/${encodeURIComponent(id)}`);
+        const data = await res.json();
+        if (!res.ok) {
+          showError(data.error || 'Failed to load league');
+          return;
+        }
+        render(data);
+        resultsEl.hidden = false;
+      } catch (e) {
+        showError('Network error. Is the server running? Try http://localhost:3000');
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    function render(data) {
+      const { league, standings, insights } = data;
+      leagueNameEl.textContent = league?.name || 'Classic League';
+
+      if (insights && !insights.error) {
+        insightsGrid.innerHTML = `
+          <div class="stat-card"><div class="label">Managers</div><div class="value">${insights.totalManagers}</div></div>
+          <div class="stat-card"><div class="label">Average pts</div><div class="value">${insights.averagePoints}</div></div>
+          <div class="stat-card"><div class="label">Highest</div><div class="value">${insights.highestPoints}</div></div>
+          <div class="stat-card"><div class="label">Lowest</div><div class="value">${insights.lowestPoints}</div></div>
+          <div class="stat-card"><div class="label">Spread</div><div class="value">${insights.pointsSpread}</div></div>
+        `;
+      } else {
+        insightsGrid.innerHTML = '';
+      }
+
+      standingsBody.innerHTML = standings.map((r, i) => `
+        <tr>
+          <td class="${rankClass(r.rank)}">${r.rank}</td>
+          <td>${escapeHtml(r.entry_name || '—')}</td>
+          <td>${escapeHtml(r.player_name || '—')}</td>
+          <td>${r.total ?? '—'}</td>
+          <td>${r.event_total ?? '—'}</td>
+          <td class="${movementClass(r.movement)}">${movementLabel(r.movement)}</td>
+        </tr>
+      `).join('');
+    }
+
+    function escapeHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+# Optional: use this for one-click deploy on Render
+# Dashboard: https://dashboard.render.com → New → Blueprint
+services:
+  - type: web
+    name: fpl-analyzer
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
