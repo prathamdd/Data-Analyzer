@@ -144,6 +144,33 @@
       margin-top: 0.5rem;
     }
     .help a { color: var(--accent); }
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin: 2rem 0 0.75rem;
+      color: var(--text);
+    }
+    .section-title:first-of-type { margin-top: 0; }
+    .gw-table-wrap { overflow-x: auto; margin-bottom: 1rem; }
+    .gw-table-wrap table { font-size: 0.8rem; }
+    .gw-table-wrap th, .gw-table-wrap td { padding: 0.4rem 0.5rem; min-width: 2rem; text-align: center; }
+    .gw-table-wrap th:first-child, .gw-table-wrap td:first-child { text-align: left; min-width: 120px; position: sticky; left: 0; background: var(--surface2); z-index: 1; }
+    .captain-section {
+      background: var(--surface);
+      border: 1px solid var(--surface2);
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin-top: 1.5rem;
+    }
+    .captain-load { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
+    .captain-load input { max-width: 140px; padding: 0.5rem 0.75rem; border: 1px solid var(--surface2); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 0.95rem; }
+    .captain-load button { padding: 0.5rem 1rem; background: var(--surface2); color: var(--text); border: none; border-radius: 6px; font-weight: 600; cursor: pointer; }
+    .captain-load button:hover { background: var(--accent); color: var(--bg); }
+    .captain-stats { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .captain-stats span { font-size: 0.9rem; color: var(--text-muted); }
+    .captain-stats strong { color: var(--accent); }
+    .success-high { color: var(--accent); }
+    .success-low { color: var(--danger); }
   </style>
 </head>
 <body>
@@ -158,7 +185,7 @@
     </div>
     <p class="help">Find your league ID in the URL when you open your league on <a href="https://fantasy.premierleague.com" target="_blank" rel="noopener">fantasy.premierleague.com</a> (Leagues → your league).</p>
     <div id="error" class="error" hidden></div>
-    <div id="loading" class="loading" hidden>Loading league data…</div>
+    <div id="loading" class="loading" hidden>Loading league, GW-by-GW & transfer data… (may take a few seconds)</div>
     <div id="results" hidden>
       <div class="league-name" id="leagueName"></div>
       <div class="insights-grid" id="insightsGrid"></div>
@@ -177,6 +204,33 @@
           <tbody id="standingsBody"></tbody>
         </table>
       </div>
+
+      <h2 class="section-title">GW by GW points</h2>
+      <div id="gwByGwSection" class="gw-table-wrap" hidden></div>
+
+      <h2 class="section-title">Transfer success</h2>
+      <div id="transferSection" class="standings-wrap" hidden></div>
+
+      <div class="captain-section">
+        <h2 class="section-title">Captaincy success</h2>
+        <p class="help">Enter your entry ID (same as in the standings URL on FPL) to see your captain picks and points each gameweek.</p>
+        <div class="captain-load">
+          <input type="text" id="entryId" placeholder="Your entry ID" autocomplete="off">
+          <button type="button" id="captainBtn">Load my captaincy</button>
+        </div>
+        <div id="captainLoading" class="loading" hidden>Loading captaincy…</div>
+        <div id="captainResults" hidden>
+          <div class="captain-stats" id="captainStats"></div>
+          <div class="standings-wrap">
+            <table>
+              <thead>
+                <tr><th>GW</th><th>Captain</th><th>Pts</th></tr>
+              </thead>
+              <tbody id="captainBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   <script>
@@ -188,6 +242,14 @@
     const leagueNameEl = document.getElementById('leagueName');
     const insightsGrid = document.getElementById('insightsGrid');
     const standingsBody = document.getElementById('standingsBody');
+    const gwByGwSection = document.getElementById('gwByGwSection');
+    const transferSection = document.getElementById('transferSection');
+    const entryIdEl = document.getElementById('entryId');
+    const captainBtn = document.getElementById('captainBtn');
+    const captainLoading = document.getElementById('captainLoading');
+    const captainResults = document.getElementById('captainResults');
+    const captainStats = document.getElementById('captainStats');
+    const captainBody = document.getElementById('captainBody');
 
     function showError(msg) {
       errorEl.textContent = msg;
@@ -269,7 +331,98 @@
           <td class="${movementClass(r.movement)}">${movementLabel(r.movement)}</td>
         </tr>
       `).join('');
+
+      // GW by GW table
+      const gwByGw = data.gwByGw || [];
+      if (gwByGw.length > 0) {
+        const allEvents = gwByGw.flatMap(r => (r.gameweeks || []).map(g => g.event));
+        const maxGw = allEvents.length ? Math.max(...allEvents) : 0;
+        const gwHeaders = maxGw ? Array.from({ length: maxGw }, (_, i) => i + 1) : [];
+        if (gwHeaders.length) {
+          gwByGwSection.hidden = false;
+          gwByGwSection.innerHTML = `
+          <table>
+            <thead><tr><th>#</th><th>Team</th>${gwHeaders.map(gw => `<th>${gw}</th>`).join('')}</tr></thead>
+            <tbody>
+              ${gwByGw.map(r => {
+                const pts = (r.gameweeks || []).reduce((acc, g) => { acc[g.event] = g.points; return acc; }, {});
+                return `<tr>
+                  <td class="${rankClass(r.rank)}">${r.rank}</td>
+                  <td>${escapeHtml(r.entry_name || '—')}</td>
+                  ${gwHeaders.map(gw => `<td>${pts[gw] ?? '—'}</td>`).join('')}
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>`;
+        } else {
+          gwByGwSection.hidden = true;
+        }
+      } else {
+        gwByGwSection.hidden = true;
+      }
+
+      // Transfer success table
+      const transferSuccess = data.transferSuccess || [];
+      if (transferSuccess.length > 0) {
+        transferSection.hidden = false;
+        transferSection.innerHTML = `
+          <table>
+            <thead>
+              <tr><th>#</th><th>Team</th><th>Manager</th><th>Total</th><th>Hit cost</th><th>Net pts</th><th># hits</th></tr>
+            </thead>
+            <tbody>
+              ${transferSuccess.map(t => `
+                <tr>
+                  <td class="${rankClass(t.rank)}">${t.rank}</td>
+                  <td>${escapeHtml(t.entry_name || '—')}</td>
+                  <td>${escapeHtml(t.player_name || '—')}</td>
+                  <td>${t.total ?? '—'}</td>
+                  <td>${t.totalHitCost > 0 ? '<span class="success-low">−' + t.totalHitCost + '</span>' : '0'}</td>
+                  <td>${t.netPoints ?? '—'}</td>
+                  <td>${t.numHitWeeks ?? 0}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>`;
+      } else {
+        transferSection.hidden = true;
+      }
     }
+
+    captainBtn.addEventListener('click', async () => {
+      const id = entryIdEl.value.trim();
+      if (!id) return;
+      captainLoading.hidden = false;
+      captainResults.hidden = true;
+      try {
+        const res = await fetch(`/api/entry/${encodeURIComponent(id)}/captaincy`);
+        const data = await res.json();
+        if (!res.ok) {
+          captainStats.innerHTML = `<span class="success-low">${data.error || 'Failed to load'}</span>`;
+          captainResults.hidden = false;
+          captainBody.innerHTML = '';
+          return;
+        }
+        captainStats.innerHTML = `
+          <span>Avg captain pts: <strong>${data.avgCaptainPoints}</strong></span>
+          <span>Success rate (≥${data.successThreshold} pts): <strong class="${data.successRate >= 50 ? 'success-high' : 'success-low'}">${data.successRate}%</strong></span>
+          <span>Total captain pts: <strong>${data.totalCaptainPoints ?? 0}</strong></span>
+        `;
+        captainBody.innerHTML = (data.gameweeks || []).map(g => `
+          <tr>
+            <td>${g.gw}</td>
+            <td>${escapeHtml(g.captain_name)}</td>
+            <td class="${g.captain_points >= 6 ? 'success-high' : 'success-low'}">${g.captain_points}</td>
+          </tr>
+        `).join('');
+        captainResults.hidden = false;
+      } catch (e) {
+        captainStats.innerHTML = '<span class="success-low">Network error</span>';
+        captainResults.hidden = false;
+      } finally {
+        captainLoading.hidden = true;
+      }
+    });
 
     function escapeHtml(s) {
       const div = document.createElement('div');
