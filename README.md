@@ -18,9 +18,23 @@ Open [http://localhost:3000](http://localhost:3000), enter your **league ID**, a
 
 ## What you get
 
-- **Standings table** – rank, team name, manager, total points, gameweek points, movement
-- **Insights** – number of managers, average points, highest/lowest points, points spread
+- **Standings** – rank, team name, manager, total points, gameweek points, movement
+- **GW-by-GW points** – points per gameweek for each manager
+- **Transfer success** – hit cost, net points, number of hits
+- **Captaincy success** – your captain picks and points (enter your entry ID)
+- **Mini-League Narrator** – AI “Sports Center” style commentary (needs API key below)
+- **Transfer Personality** – Knee-Jerker / Diamond Hands / Template Slave (last 5 GW)
+- **Differential heatmap** – ownership in your mini-league (green = differential, red = template)
 - Full league support (all pages of standings are fetched)
+
+## AI commentary (optional)
+
+To enable **Mini-League Narrator**, set one of these in your environment:
+
+- `OPENAI_API_KEY` – [OpenAI API key](https://platform.openai.com/api-keys)
+- `GEMINI_API_KEY` – [Google AI API key](https://aistudio.google.com/apikey)
+
+Example: `OPENAI_API_KEY=sk-... npm start`
 
 ## Deploy as a real website (Render)
 

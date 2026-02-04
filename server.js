@@ -29,11 +29,13 @@ async function getBootstrap() {
   if (bootstrapCache && Date.now() - bootstrapCacheTime < BOOTSTRAP_TTL_MS) return bootstrapCache;
   const { data } = await axios.get(`${FPL_BASE}/bootstrap-static/`, { headers: REQUEST_HEADERS });
   const events = data.events || [];
-  const elements = (data.elements || []).reduce((acc, el) => {
-    acc[el.id] = el.web_name || `#${el.id}`;
-    return acc;
-  }, {});
-  bootstrapCache = { events, elements };
+  const elements = {};
+  const elementsOwnership = {};
+  (data.elements || []).forEach(el => {
+    elements[el.id] = el.web_name || `#${el.id}`;
+    elementsOwnership[el.id] = parseFloat(el.selected_by_percent) || 0;
+  });
+  bootstrapCache = { events, elements, elementsOwnership };
   bootstrapCacheTime = Date.now();
   return bootstrapCache;
 }
@@ -127,6 +129,7 @@ app.get('/api/insights/:leagueId', async (req, res) => {
     // GW-by-GW and transfer success: fetch entry history for each manager (batched)
     let gwByGw = [];
     let transferSuccess = [];
+    const entryHistories = []; // { entry_id, entry_name, player_name, rank, history }
     const entriesToFetch = results.slice(0, MAX_ENTRIES_FOR_HISTORY);
     for (let i = 0; i < entriesToFetch.length; i += BATCH_SIZE) {
       const batch = entriesToFetch.slice(i, i + BATCH_SIZE);
@@ -161,8 +164,78 @@ app.get('/api/insights/:leagueId', async (req, res) => {
           numHitWeeks,
           netPoints: (r.total ?? 0) - totalHitCost
         });
+        entryHistories.push({
+          entry_id: r.id,
+          entry_name: r.entry_name,
+          player_name: r.player_name,
+          rank: r.rank,
+          history: current
+        });
       }
       if (i + BATCH_SIZE < entriesToFetch.length) await sleep(BATCH_DELAY_MS);
+    }
+
+    // Transfer personality & differentials: need current squad (picks) and bootstrap ownership
+    let transferPersonality = [];
+    let differentials = [];
+    try {
+      const bootstrap = await getBootstrap();
+      const { events, elementsOwnership } = bootstrap;
+      const lastGw = lastFinishedGameweek(events);
+      const currentGw = events.find(e => e.is_current)?.id ?? lastGw || 1;
+      const leagueSize = entryHistories.length;
+      const leagueOwnershipCount = {};
+      const managerSquads = [];
+      for (let i = 0; i < entryHistories.length; i += BATCH_SIZE) {
+        const batch = entryHistories.slice(i, i + BATCH_SIZE);
+        const picksData = await Promise.all(batch.map(e => fetchEntryPicks(e.entry_id, currentGw).catch(() => null)));
+        for (let j = 0; j < batch.length; j++) {
+          const entry = batch[j];
+          const picks = picksData[j]?.picks || [];
+          const elementIds = picks.map(p => p.element);
+          managerSquads.push({ ...entry, elementIds });
+          elementIds.forEach(eid => {
+            leagueOwnershipCount[eid] = (leagueOwnershipCount[eid] || 0) + 1;
+          });
+        }
+        if (i + BATCH_SIZE < entryHistories.length) await sleep(BATCH_DELAY_MS);
+      }
+      const bootstrapEl = bootstrap.elements || {};
+      for (const m of managerSquads) {
+        const history = m.history || [];
+        const last5 = history.slice(-5);
+        const transfersLast5 = last5.reduce((s, h) => s + (Number(h.event_transfers) || 0), 0);
+        const ownerships = (m.elementIds || []).map(eid => elementsOwnership[eid] ?? 0).filter(Boolean);
+        const avgOwnership = ownerships.length ? ownerships.reduce((a, b) => a + b, 0) / ownerships.length : 0;
+        let personality = 'The Balanced';
+        if (transfersLast5 >= 5) personality = 'The Knee-Jerker';
+        else if (transfersLast5 <= 1) personality = 'The Diamond Hands';
+        else if (avgOwnership > 30) personality = 'The Template Slave';
+        transferPersonality.push({
+          entry_id: m.entry_id,
+          entry_name: m.entry_name,
+          player_name: m.player_name,
+          rank: m.rank,
+          personality,
+          transfersLast5,
+          avgOwnership: Math.round(avgOwnership * 10) / 10
+        });
+      }
+      const playerIds = Object.keys(leagueOwnershipCount);
+      differentials = playerIds.map(eid => {
+        const count = leagueOwnershipCount[eid];
+        const pct = leagueSize ? Math.round((count / leagueSize) * 1000) / 10 : 0;
+        const globalPct = elementsOwnership[eid] ?? 0;
+        return {
+          element_id: Number(eid),
+          web_name: bootstrapEl[eid] || `#${eid}`,
+          league_ownership_count: count,
+          league_ownership_pct: pct,
+          global_ownership_pct: globalPct
+        };
+      }).sort((a, b) => a.league_ownership_count - b.league_ownership_count);
+    } catch (e) {
+      console.error('Personality/differentials error:', e.message);
     }
 
     res.json({
@@ -179,13 +252,92 @@ app.get('/api/insights/:leagueId', async (req, res) => {
         movement: movementCounts
       },
       gwByGw,
-      transferSuccess
+      transferSuccess,
+      transferPersonality,
+      differentials
     });
   } catch (error) {
     console.error('Insights fetch error:', error.response?.status, error.message);
     res.status(error.response?.status || 500).json({
       error: error.response?.data?.detail || 'Failed to fetch league insights'
     });
+  }
+});
+
+// Mini-League Narrator: AI Sports Center–style commentary (OpenAI or Gemini)
+app.post('/api/narrate', async (req, res) => {
+  try {
+    const { leagueId } = req.body || {};
+    if (!leagueId) {
+      return res.status(400).json({ error: 'leagueId required' });
+    }
+    const { league, results } = await fetchFullLeagueStandings(leagueId);
+    if (!results.length) {
+      return res.status(400).json({ error: 'No league data' });
+    }
+    const top = results.slice(0, 3).map(r => ({
+      rank: r.rank,
+      team: r.entry_name,
+      manager: r.player_name,
+      total: r.total,
+      gwPts: r.event_total
+    }));
+    const bottom = results.slice(-3).reverse().map(r => ({
+      rank: r.rank,
+      team: r.entry_name,
+      manager: r.player_name,
+      total: r.total,
+      gwPts: r.event_total
+    }));
+    const dataBlob = JSON.stringify({ leagueName: league?.name, top, bottom }, null, 0);
+    const prompt = `You are a witty Fantasy Premier League commentator. Based on this mini-league data, write exactly 3 short sentences in "Sports Center" style: trash talk the strugglers and hype the leaders. Be funny and specific (use team names). No preamble, no bullet points—just 3 sentences.\n\nData:\n${dataBlob}`;
+
+    const openaiKey = process.env.OPENAI_API_KEY;
+    const geminiKey = process.env.GEMINI_API_KEY;
+
+    if (openaiKey) {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openaiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 200
+        })
+      });
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message || 'OpenAI error');
+      const text = data.choices?.[0]?.message?.content?.trim() || 'No commentary generated.';
+      return res.json({ commentary: text });
+    }
+
+    if (geminiKey) {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { maxOutputTokens: 200 }
+          })
+        }
+      );
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 'No commentary generated.';
+      if (data.error) throw new Error(data.error.message || 'Gemini error');
+      return res.json({ commentary: text });
+    }
+
+    return res.status(400).json({
+      error: 'Set OPENAI_API_KEY or GEMINI_API_KEY in environment to enable AI commentary.'
+    });
+  } catch (error) {
+    console.error('Narrator error:', error.message);
+    res.status(500).json({ error: error.message || 'Failed to generate commentary' });
   }
 });
 

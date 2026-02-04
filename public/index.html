@@ -171,6 +171,45 @@
     .captain-stats strong { color: var(--accent); }
     .success-high { color: var(--accent); }
     .success-low { color: var(--danger); }
+    .narrator-box {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+      border: 1px solid var(--surface2);
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin: 1.5rem 0;
+    }
+    .narrator-box .narrator-text { font-size: 1rem; line-height: 1.6; color: var(--text); margin: 0; white-space: pre-wrap; }
+    .narrator-box .narrator-loading { color: var(--text-muted); }
+    .narrator-box .narrator-error { color: var(--danger); }
+    .personality-tag {
+      display: inline-block;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .personality-knee { background: rgba(248, 81, 73, 0.25); color: #ff7b72; }
+    .personality-diamond { background: rgba(63, 185, 80, 0.2); color: var(--accent); }
+    .personality-template { background: rgba(212, 168, 83, 0.25); color: var(--gold); }
+    .personality-balanced { background: rgba(139, 148, 158, 0.25); color: var(--text-muted); }
+    .heatmap-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+    .heatmap-cell {
+      padding: 0.5rem 0.6rem;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      text-align: center;
+      border: 1px solid transparent;
+    }
+    .heatmap-cell.diff { background: rgba(63, 185, 80, 0.25); color: var(--accent); border-color: rgba(63, 185, 80, 0.4); }
+    .heatmap-cell.mid { background: rgba(139, 148, 158, 0.2); color: var(--text-muted); }
+    .heatmap-cell.template { background: rgba(248, 81, 73, 0.2); color: #ff7b72; border-color: rgba(248, 81, 73, 0.4); }
+    .heatmap-cell .name { font-weight: 600; }
+    .heatmap-cell .pct { font-size: 0.75rem; opacity: 0.9; }
   </style>
 </head>
 <body>
@@ -211,6 +250,21 @@
       <h2 class="section-title">Transfer success</h2>
       <div id="transferSection" class="standings-wrap" hidden></div>
 
+      <h2 class="section-title">Mini-League Narrator</h2>
+      <div class="narrator-box">
+        <p class="help">AI commentary on your league (top vs bottom). Set OPENAI_API_KEY or GEMINI_API_KEY on the server to enable.</p>
+        <button type="button" id="narrateBtn" class="search button" style="margin-bottom: 1rem;">Generate Sports Center commentary</button>
+        <div id="narratorOut"><p class="narrator-text narrator-loading" id="narratorText">Click the button to generate.</p></div>
+      </div>
+
+      <h2 class="section-title">Transfer Personality</h2>
+      <p class="help">Manager style over the last 5 gameweeks: Knee-Jerker (lots of transfers), Diamond Hands (holds), Template Slave (high ownership squad).</p>
+      <div id="personalitySection" class="standings-wrap" hidden></div>
+
+      <h2 class="section-title">Differential heatmap</h2>
+      <p class="help">Ownership in your mini-league. Green = differential (few own), red = template (many own).</p>
+      <div id="differentialsSection" class="heatmap-grid" hidden></div>
+
       <div class="captain-section">
         <h2 class="section-title">Captaincy success</h2>
         <p class="help">Enter your entry ID (same as in the standings URL on FPL) to see your captain picks and points each gameweek.</p>
@@ -250,6 +304,11 @@
     const captainResults = document.getElementById('captainResults');
     const captainStats = document.getElementById('captainStats');
     const captainBody = document.getElementById('captainBody');
+    const narrateBtn = document.getElementById('narrateBtn');
+    const narratorText = document.getElementById('narratorText');
+    const narratorOut = document.getElementById('narratorOut');
+    const personalitySection = document.getElementById('personalitySection');
+    const differentialsSection = document.getElementById('differentialsSection');
 
     function showError(msg) {
       errorEl.textContent = msg;
@@ -387,7 +446,80 @@
       } else {
         transferSection.hidden = true;
       }
+
+      // Transfer Personality table
+      const transferPersonality = data.transferPersonality || [];
+      if (transferPersonality.length > 0) {
+        personalitySection.hidden = false;
+        const personalityClass = p => {
+          if (p === 'The Knee-Jerker') return 'personality-knee';
+          if (p === 'The Diamond Hands') return 'personality-diamond';
+          if (p === 'The Template Slave') return 'personality-template';
+          return 'personality-balanced';
+        };
+        personalitySection.innerHTML = `
+          <table>
+            <thead>
+              <tr><th>#</th><th>Team</th><th>Manager</th><th>Personality</th><th>Transfers (5 GW)</th><th>Avg ownership %</th></tr>
+            </thead>
+            <tbody>
+              ${transferPersonality.map(t => `
+                <tr>
+                  <td class="${rankClass(t.rank)}">${t.rank}</td>
+                  <td>${escapeHtml(t.entry_name || '—')}</td>
+                  <td>${escapeHtml(t.player_name || '—')}</td>
+                  <td><span class="personality-tag ${personalityClass(t.personality)}">${escapeHtml(t.personality)}</span></td>
+                  <td>${t.transfersLast5 ?? '—'}</td>
+                  <td>${t.avgOwnership ?? '—'}%</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>`;
+      } else {
+        personalitySection.hidden = true;
+      }
+
+      // Differential heatmap
+      const differentials = data.differentials || [];
+      if (differentials.length > 0) {
+        differentialsSection.hidden = false;
+        const totalManagers = data.insights?.totalManagers || 1;
+        differentialsSection.innerHTML = differentials.map(p => {
+          const pct = p.league_ownership_pct ?? 0;
+          let cellClass = 'mid';
+          if (pct <= 20) cellClass = 'diff';
+          else if (pct >= 60) cellClass = 'template';
+          return `<div class="heatmap-cell ${cellClass}"><span class="name">${escapeHtml(p.web_name)}</span><br><span class="pct">${p.league_ownership_count}/${totalManagers} (${pct}%)</span></div>`;
+        }).join('');
+      } else {
+        differentialsSection.hidden = true;
+      }
     }
+
+    narrateBtn.addEventListener('click', async () => {
+      const leagueId = leagueIdEl.value.trim();
+      if (!leagueId) return;
+      narratorText.textContent = 'Generating commentary…';
+      narratorText.className = 'narrator-text narrator-loading';
+      try {
+        const res = await fetch('/api/narrate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ leagueId })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          narratorText.textContent = data.error || 'Failed to generate commentary.';
+          narratorText.className = 'narrator-text narrator-error';
+          return;
+        }
+        narratorText.textContent = data.commentary || 'No commentary generated.';
+        narratorText.className = 'narrator-text';
+      } catch (e) {
+        narratorText.textContent = 'Network error.';
+        narratorText.className = 'narrator-text narrator-error';
+      }
+    });
 
     captainBtn.addEventListener('click', async () => {
       const id = entryIdEl.value.trim();
