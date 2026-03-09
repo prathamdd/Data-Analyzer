@@ -446,6 +446,39 @@
       } else {
         transferSection.hidden = true;
       }
+      // --- NEW: Manager Insights & Optimization (Pillar 2 & 3) ---
+      const personality = data.transferPersonality || [];
+      const alerts = data.optimizationAlerts || [];
+      
+      if (personality.length > 0) {
+        insightsSection.hidden = false; // Make sure you have this element in your HTML
+        insightsSection.innerHTML = `
+          <h3>Manager Scout Reports</h3>
+          <div class="scout-grid">
+            ${personality.map(p => {
+              const alert = alerts.find(a => a.entry_id === p.entry_id) || {};
+              const personalityClass = p.personality.replace(/\s+/g, '-').toLowerCase();
+              
+              return `
+                <div class="scout-card">
+                  <div class="scout-header">
+                    <strong>${escapeHtml(p.entry_name)}</strong>
+                    <span class="personality-badge ${personalityClass}">${p.personality}</span>
+                  </div>
+                  <div class="scout-body">
+                    <p><strong>Avg Ownership:</strong> ${p.avgOwnership}%</p>
+                    <p><strong>Risk Level:</strong> <span class="risk-${alert.riskLevel?.toLowerCase()}">${alert.riskLevel}</span></p>
+                    <p class="suggestion">💡 ${alert.suggestion}</p>
+                    <div class="gems">
+                      <strong>Unique Gems:</strong> ${alert.uniqueGems?.join(', ') || 'None'}
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+      }
 
       // Transfer Personality table
       const transferPersonality = data.transferPersonality || [];

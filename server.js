@@ -182,7 +182,7 @@ app.get('/api/insights/:leagueId', async (req, res) => {
       const bootstrap = await getBootstrap();
       const { events, elementsOwnership } = bootstrap;
       const lastGw = lastFinishedGameweek(events);
-      const currentGw = events.find(e => e.is_current)?.id ?? lastGw || 1;
+      const currentGw = (events.find(e => e.is_current)?.id ?? lastGw) || 1;
       const leagueSize = entryHistories.length;
       const leagueOwnershipCount = {};
       const managerSquads = [];
@@ -221,6 +221,28 @@ app.get('/api/insights/:leagueId', async (req, res) => {
           avgOwnership: Math.round(avgOwnership * 10) / 10
         });
       }
+      const optimizationAlerts = managerSquads.map(m => {
+        // 1. Find "Unique Gems" (Players in their squad with < 5% global ownership)
+        const uniqueGems = (m.elementIds || [])
+          .filter(eid => (elementsOwnership[eid] || 0) < 5)
+          .map(id => bootstrapEl[id] || `#${id}`);
+        
+        // 2. Find "Danger Players" (Owned by > 80% of YOUR league, but NOT this manager)
+        const missedTemplateIds = Object.keys(leagueOwnershipCount).filter(eid => {
+          const leaguePct = (leagueOwnershipCount[eid] / leagueSize);
+          const managerDoesNotOwn = !m.elementIds.includes(Number(eid));
+          return leaguePct > 0.8 && managerDoesNotOwn;
+        });
+
+        return {
+          entry_id: m.entry_id,
+          uniqueGems: uniqueGems.slice(0, 3), // Top 3 unique players
+          riskLevel: missedTemplateIds.length > 2 ? 'High' : (missedTemplateIds.length > 0 ? 'Medium' : 'Low'),
+          suggestion: missedTemplateIds.length > 0 
+            ? `Rivals are pulling away with ${bootstrapEl[missedTemplateIds[0]]}` 
+            : 'Squad is well-protected against rivals'
+        };
+      });
       const playerIds = Object.keys(leagueOwnershipCount);
       differentials = playerIds.map(eid => {
         const count = leagueOwnershipCount[eid];
@@ -399,3 +421,33 @@ app.get('/api/entry/:entryId/captaincy', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`FPL Analyzer running at http://localhost:${PORT}`);
 });
+
+// Add this helper function to your server.js
+async function calculateGhostScore(entryId, bootstrapElements) {
+  try {
+    // 1. Get the squad from Gameweek 1
+    const gw1Picks = await fetchEntryPicks(entryId, 1);
+    const ghostPlayerIds = gw1Picks.picks.map(p => p.element);
+    const captainId = gw1Picks.picks.find(p => p.is_captain).element;
+
+    let ghostTotal = 0;
+    
+    // 2. Fetch history for each player in that GW1 squad
+    // (Note: In a real app, you'd want to cache these player histories!)
+    for (const pid of ghostPlayerIds) {
+      const history = await fetchElementSummary(pid);
+      const playerSeasonPoints = history.reduce((sum, gw) => sum + (gw.total_points || 0), 0);
+      
+      // Add double points for the original captain
+      if (pid === captainId) {
+        ghostTotal += (playerSeasonPoints * 2);
+      } else {
+        ghostTotal += playerSeasonPoints;
+      }
+    }
+    return ghostTotal;
+  } catch (error) {
+    console.error(`Ghost score error for ${entryId}:`, error.message);
+    return 0;
+  }
+}
