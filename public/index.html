@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FPL League Analyzer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="/style.css">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
   <style>
@@ -227,6 +228,7 @@
     <div id="loading" class="loading" hidden>Loading league, GW-by-GW & transfer data… (may take a few seconds)</div>
     <div id="results" hidden>
       <div class="league-name" id="leagueName"></div>
+      <div id="insightsSection" hidden></div>
       <div class="insights-grid" id="insightsGrid"></div>
       <div class="standings-wrap">
         <table>
@@ -288,6 +290,7 @@
     </div>
   </div>
   <script>
+    const insightsSection = document.getElementById('insightsSection');
     const leagueIdEl = document.getElementById('leagueId');
     const fetchBtn = document.getElementById('fetchBtn');
     const errorEl = document.getElementById('error');
