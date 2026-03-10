@@ -6,40 +6,43 @@
   <title>FPL League Analyzer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0f1419;
-      --surface: #1a2332;
-      --surface2: #243044;
-      --text: #e6edf3;
-      --text-muted: #8b949e;
-      --accent: #3fb950;
-      --accent-dim: #238636;
-      --danger: #f85149;
-      --gold: #d4a853;
+      --bg: #050816;
+      --bg-elevated: #0b1020;
+      --surface: #111827;
+      --surface2: #1f2937;
+      --surface-soft: #020617;
+      --text: #e5e7eb;
+      --text-muted: #9ca3af;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.15);
+      --danger: #f97373;
+      --gold: #facc15;
     }
     * { box-sizing: border-box; }
     body {
-      font-family: 'DM Sans', system-ui, sans-serif;
-      background: var(--bg);
+      font-family: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: radial-gradient(circle at top, #111827 0, #020617 45%, #020617 100%);
       color: var(--text);
       margin: 0;
       min-height: 100vh;
-      line-height: 1.5;
+      line-height: 1.6;
     }
     .container {
-      max-width: 900px;
+      max-width: 1040px;
       margin: 0 auto;
-      padding: 2rem 1.5rem;
+      padding: 2.5rem 1.75rem 3rem;
     }
     header {
       text-align: center;
-      margin-bottom: 2.5rem;
+      margin-bottom: 2.25rem;
     }
     h1 {
-      font-size: 1.75rem;
+      font-size: 2rem;
       font-weight: 700;
       margin: 0 0 0.25rem;
       background: linear-gradient(135deg, var(--accent), #7ee787);
@@ -47,18 +50,19 @@
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
-    .subtitle { color: var(--text-muted); font-size: 0.95rem; margin: 0; }
+    .subtitle { color: var(--text-muted); font-size: 0.95rem; margin: 0; letter-spacing: 0.01em; }
     .search {
       display: flex;
       gap: 0.75rem;
-      margin-bottom: 2rem;
+      margin-bottom: 1.5rem;
       flex-wrap: wrap;
+      align-items: center;
     }
     .search input {
       flex: 1;
       min-width: 200px;
       padding: 0.75rem 1rem;
-      border: 1px solid var(--surface2);
+      border: 1px solid #1e293b;
       border-radius: 8px;
       background: var(--surface);
       color: var(--text);
@@ -68,62 +72,66 @@
     .search input:focus {
       outline: none;
       border-color: var(--accent);
-      box-shadow: 0 0 0 2px rgba(63, 185, 80, 0.2);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.5);
     }
     .search button {
       padding: 0.75rem 1.5rem;
       background: var(--accent);
-      color: var(--bg);
+      color: #020617;
       border: none;
       border-radius: 8px;
       font-weight: 600;
       font-size: 1rem;
       cursor: pointer;
     }
-    .search button:hover { background: #46c35a; }
+    .search button:hover { background: #0ea5e9; }
     .search button:disabled { opacity: 0.6; cursor: not-allowed; }
     .error {
-      background: rgba(248, 81, 73, 0.15);
-      border: 1px solid var(--danger);
-      color: #ff7b72;
-      padding: 1rem;
-      border-radius: 8px;
-      margin-bottom: 1.5rem;
+      background: rgba(248, 113, 113, 0.08);
+      border: 1px solid rgba(248, 113, 113, 0.5);
+      color: #fecaca;
+      padding: 0.9rem 1rem;
+      border-radius: 10px;
+      margin-bottom: 1.25rem;
+      font-size: 0.9rem;
     }
     .loading { text-align: center; color: var(--text-muted); padding: 2rem; }
     .league-name {
-      font-size: 1.25rem;
+      font-size: 1.3rem;
       font-weight: 600;
-      margin-bottom: 1.5rem;
+      margin-bottom: 0.5rem;
       color: var(--text);
     }
     .insights-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-      gap: 1rem;
-      margin-bottom: 2rem;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.9rem;
+      margin: 0.75rem 0 1.75rem;
     }
     .stat-card {
-      background: var(--surface);
-      border: 1px solid var(--surface2);
-      border-radius: 10px;
-      padding: 1rem;
+      background: var(--bg-elevated);
+      border-radius: 12px;
+      padding: 0.85rem 1rem;
+      border: 1px solid rgba(15, 23, 42, 0.9);
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.55);
     }
-    .stat-card .label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-card .label { font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.14em; }
     .stat-card .value { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
     .standings-wrap {
       overflow-x: auto;
-      border-radius: 10px;
-      border: 1px solid var(--surface2);
+      border-radius: 12px;
+      border: 1px solid rgba(15, 23, 42, 0.95);
+      background: radial-gradient(circle at top left, #020617 0, #020617 40%, #020617 100%);
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.7);
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.9rem;
+      font-size: 0.88rem;
     }
-    th, td { padding: 0.75rem 1rem; text-align: left; }
+    th, td { padding: 0.75rem 0.9rem; text-align: left; }
     th {
-      background: var(--surface2);
+      background: rgba(15, 23, 42, 0.95);
       color: var(--text-muted);
       font-weight: 600;
       font-size: 0.8rem;
@@ -132,7 +140,7 @@
     }
     tr { border-bottom: 1px solid var(--surface2); }
     tr:last-child { border-bottom: none; }
-    tr:hover { background: rgba(63, 185, 80, 0.06); }
+    tr:hover { background: rgba(15, 23, 42, 0.95); }
     .movement-up { color: var(--accent); }
     .movement-down { color: var(--danger); }
     .movement-same { color: var(--text-muted); }
@@ -140,28 +148,32 @@
     .rank-2 { color: #c0c0c0; font-weight: 600; }
     .rank-3 { color: #cd7f32; font-weight: 600; }
     .help {
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       color: var(--text-muted);
-      margin-top: 0.5rem;
+      margin-top: 0.35rem;
     }
-    .help a { color: var(--accent); }
+    .help a { color: var(--accent); text-decoration: none; }
+    .help a:hover { text-decoration: underline; }
     .section-title {
-      font-size: 1.1rem;
+      font-size: 1.02rem;
       font-weight: 600;
-      margin: 2rem 0 0.75rem;
+      margin: 1.9rem 0 0.65rem;
       color: var(--text);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
-    .section-title:first-of-type { margin-top: 0; }
-    .gw-table-wrap { overflow-x: auto; margin-bottom: 1rem; }
+    .section-title:first-of-type { margin-top: 0.5rem; }
+    .gw-table-wrap { overflow-x: auto; margin-bottom: 1rem; background: var(--surface); border-radius: 12px; border: 1px solid rgba(15,23,42,0.9); }
     .gw-table-wrap table { font-size: 0.8rem; }
     .gw-table-wrap th, .gw-table-wrap td { padding: 0.4rem 0.5rem; min-width: 2rem; text-align: center; }
     .gw-table-wrap th:first-child, .gw-table-wrap td:first-child { text-align: left; min-width: 120px; position: sticky; left: 0; background: var(--surface2); z-index: 1; }
     .captain-section {
-      background: var(--surface);
-      border: 1px solid var(--surface2);
-      border-radius: 10px;
-      padding: 1.25rem;
-      margin-top: 1.5rem;
+      background: var(--bg-elevated);
+      border: 1px solid rgba(15,23,42,0.95);
+      border-radius: 12px;
+      padding: 1.25rem 1.3rem;
+      margin-top: 1.7rem;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.75);
     }
     .captain-load { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
     .captain-load input { max-width: 140px; padding: 0.5rem 0.75rem; border: 1px solid var(--surface2); border-radius: 6px; background: var(--bg); color: var(--text); font-size: 0.95rem; }
@@ -173,11 +185,12 @@
     .success-high { color: var(--accent); }
     .success-low { color: var(--danger); }
     .narrator-box {
-      background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
-      border: 1px solid var(--surface2);
-      border-radius: 10px;
-      padding: 1.25rem;
-      margin: 1.5rem 0;
+      background: radial-gradient(circle at top left, rgba(56,189,248,0.08), rgba(15,23,42,0.95));
+      border: 1px solid rgba(37, 99, 235, 0.55);
+      border-radius: 12px;
+      padding: 1.25rem 1.3rem;
+      margin: 1.7rem 0;
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.9);
     }
     .narrator-box .narrator-text { font-size: 1rem; line-height: 1.6; color: var(--text); margin: 0; white-space: pre-wrap; }
     .narrator-box .narrator-loading { color: var(--text-muted); }
@@ -208,7 +221,7 @@
     }
     .heatmap-cell.diff { background: rgba(63, 185, 80, 0.25); color: var(--accent); border-color: rgba(63, 185, 80, 0.4); }
     .heatmap-cell.mid { background: rgba(139, 148, 158, 0.2); color: var(--text-muted); }
-    .heatmap-cell.template { background: rgba(248, 81, 73, 0.2); color: #ff7b72; border-color: rgba(248, 81, 73, 0.4); }
+    .heatmap-cell.template { background: rgba(234, 122, 116, 0.2); color: #ff7b72; border-color: rgba(248, 81, 73, 0.4); }
     .heatmap-cell .name { font-weight: 600; }
     .heatmap-cell .pct { font-size: 0.75rem; opacity: 0.9; }
   </style>
@@ -228,7 +241,12 @@
     <div id="loading" class="loading" hidden>Loading league, GW-by-GW & transfer data… (may take a few seconds)</div>
     <div id="results" hidden>
       <div class="league-name" id="leagueName"></div>
+      <div id="liveIndicator" class="live-dot" hidden><span></span> Live Data</div>
       <div id="insightsSection" hidden></div>
+      <h2 class="section-title">Rank Progress (Top 5)</h2>
+      <div class="chart-container" style="position: relative; height:40vh; width:100%; margin-bottom: 2rem;">
+        <canvas id="rankChart"></canvas>
+      </div>
       <div class="insights-grid" id="insightsGrid"></div>
       <div class="standings-wrap">
         <table>
@@ -312,6 +330,7 @@
     const narratorOut = document.getElementById('narratorOut');
     const personalitySection = document.getElementById('personalitySection');
     const differentialsSection = document.getElementById('differentialsSection');
+    let rankChart = null;
 
     function showError(msg) {
       errorEl.textContent = msg;
@@ -360,6 +379,7 @@
         }
         render(data);
         resultsEl.hidden = false;
+        startAutoRefresh(id);
       } catch (e) {
         showError('Network error. Is the server running? Try http://localhost:3000');
       } finally {
@@ -419,6 +439,8 @@
         } else {
           gwByGwSection.hidden = true;
         }
+        // Rank progress chart (top 5)
+        renderChart(gwByGw);
       } else {
         gwByGwSection.hidden = true;
       }
@@ -596,6 +618,69 @@
       const div = document.createElement('div');
       div.textContent = s;
       return div.innerHTML;
+    }
+
+    function renderChart(gwByGw) {
+      const canvas = document.getElementById('rankChart');
+      if (!canvas || !gwByGw.length) return;
+      const ctx = canvas.getContext('2d');
+
+      if (rankChart) rankChart.destroy();
+
+      const top5 = gwByGw.slice(0, 5);
+      if (!top5.length || !top5[0].gameweeks?.length) return;
+
+      const labels = top5[0].gameweeks.map(g => `GW ${g.event}`);
+      const colors = ['#3fb950', '#d4a853', '#f85149', '#a371f7', '#58a6ff'];
+
+      const datasets = top5.map((manager, index) => ({
+        label: manager.entry_name,
+        data: manager.gameweeks.map(g => g.rank ?? null),
+        borderColor: colors[index % colors.length],
+        backgroundColor: colors[index % colors.length],
+        tension: 0.3,
+        fill: false
+      }));
+
+      rankChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              reverse: true,
+              ticks: { color: '#8b949e' },
+              grid: { color: '#243044' }
+            },
+            x: {
+              ticks: { color: '#8b949e' },
+              grid: { color: '#243044' }
+            }
+          },
+          plugins: {
+            legend: { labels: { color: '#e6edf3' } }
+          }
+        }
+      });
+    }
+
+    let refreshInterval;
+
+    function startAutoRefresh(leagueId) {
+      if (refreshInterval) clearInterval(refreshInterval);
+      refreshInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/insights/${encodeURIComponent(leagueId)}`);
+          const data = await res.json();
+          if (res.ok) {
+            render(data);
+          }
+        } catch (e) {
+          console.error('Auto-refresh failed:', e);
+        }
+      }, 900000); // 15 minutes
     }
   </script>
 </body>

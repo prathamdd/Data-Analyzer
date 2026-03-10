@@ -137,7 +137,11 @@ app.get('/api/insights/:leagueId', async (req, res) => {
       for (let j = 0; j < batch.length; j++) {
         const r = batch[j];
         const current = histories[j] || [];
-        const gwPoints = current.map(h => ({ event: h.event, points: h.points ?? 0 }));
+        const gwPoints = current.map(h => ({
+          event: h.event,
+          points: h.points ?? 0,
+          rank: h.rank ?? h.overall_rank ?? null
+        }));
         let totalHitCost = 0;
         let numHitWeeks = 0;
         current.forEach(h => {
@@ -178,6 +182,7 @@ app.get('/api/insights/:leagueId', async (req, res) => {
     // Transfer personality & differentials: need current squad (picks) and bootstrap ownership
     let transferPersonality = [];
     let differentials = [];
+    let optimizationAlerts = [];
     try {
       const bootstrap = await getBootstrap();
       const { events, elementsOwnership } = bootstrap;
@@ -221,7 +226,7 @@ app.get('/api/insights/:leagueId', async (req, res) => {
           avgOwnership: Math.round(avgOwnership * 10) / 10
         });
       }
-      const optimizationAlerts = managerSquads.map(m => {
+      optimizationAlerts = managerSquads.map(m => {
         // 1. Find "Unique Gems" (Players in their squad with < 5% global ownership)
         const uniqueGems = (m.elementIds || [])
           .filter(eid => (elementsOwnership[eid] || 0) < 5)
@@ -276,7 +281,8 @@ app.get('/api/insights/:leagueId', async (req, res) => {
       gwByGw,
       transferSuccess,
       transferPersonality,
-      differentials
+      differentials,
+      optimizationAlerts
     });
   } catch (error) {
     console.error('Insights fetch error:', error.response?.status, error.message);
