@@ -391,16 +391,59 @@
       const { league, standings, insights } = data;
       leagueNameEl.textContent = league?.name || 'Classic League';
 
+      // Core insights
       if (insights && !insights.error) {
+        const climberName = insights.leagueClimber?.name || 'N/A';
+        const climberChange = insights.leagueClimber?.change || 0;
         insightsGrid.innerHTML = `
           <div class="stat-card"><div class="label">Managers</div><div class="value">${insights.totalManagers}</div></div>
           <div class="stat-card"><div class="label">Average pts</div><div class="value">${insights.averagePoints}</div></div>
+          <div class="stat-card">
+            <div class="label">On Fire 🔥</div>
+            <div class="value" style="font-size: 1rem;">${climberName}</div>
+            <div class="help" style="margin-top:0;">Up ${climberChange} spots</div>
+          </div>
           <div class="stat-card"><div class="label">Highest</div><div class="value">${insights.highestPoints}</div></div>
-          <div class="stat-card"><div class="label">Lowest</div><div class="value">${insights.lowestPoints}</div></div>
           <div class="stat-card"><div class="label">Spread</div><div class="value">${insights.pointsSpread}</div></div>
         `;
       } else {
         insightsGrid.innerHTML = '';
+      }
+
+      // Manager scout reports
+      const personalityData = data.transferPersonality || [];
+      const alerts = data.optimizationAlerts || [];
+      if (personalityData.length > 0) {
+        insightsSection.hidden = false;
+        insightsSection.innerHTML = `
+          <h2 class="section-title">Manager Scout Reports</h2>
+          <div class="scout-grid">
+            ${personalityData.map(p => {
+              const alert = alerts.find(a => Number(a.entry_id) === Number(p.entry_id)) || {
+                riskLevel: 'Low',
+                suggestion: 'No immediate threats detected.',
+                uniqueGems: []
+              };
+              const pClass = p.personality.replace(/\\s+/g, '-').toLowerCase();
+              return `
+                <div class="scout-card">
+                  <div class="scout-header" style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+                    <strong style="color:var(--accent); font-size:1.1rem;">${escapeHtml(p.entry_name)}</strong>
+                    <span class="personality-badge ${pClass}">${p.personality}</span>
+                  </div>
+                  <div class="scout-body">
+                    <p><strong>Avg Ownership:</strong> ${p.avgOwnership || 0}%</p>
+                    <p><strong>Risk Level:</strong> <span class="risk-${(alert.riskLevel || 'low').toLowerCase()}">${alert.riskLevel}</span></p>
+                    <p class="suggestion">💡 ${alert.suggestion}</p>
+                    <div class="gems" style="margin-top:8px; font-size:0.85rem; color:#7ee787;">
+                      <strong>Unique Gems:</strong> ${alert.uniqueGems?.length ? alert.uniqueGems.join(', ') : 'None'}
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
       }
 
       standingsBody.innerHTML = standings.map((r, i) => `
@@ -472,38 +515,45 @@
         transferSection.hidden = true;
       }
       // --- NEW: Manager Insights & Optimization (Pillar 2 & 3) ---
-      const personality = data.transferPersonality || [];
-      const alerts = data.optimizationAlerts || [];
-      
-      if (personality.length > 0) {
-        insightsSection.hidden = false; // Make sure you have this element in your HTML
-        insightsSection.innerHTML = `
-          <h3>Manager Scout Reports</h3>
-          <div class="scout-grid">
-            ${personality.map(p => {
-              const alert = alerts.find(a => a.entry_id === p.entry_id) || {};
-              const personalityClass = p.personality.replace(/\s+/g, '-').toLowerCase();
-              
-              return `
-                <div class="scout-card">
-                  <div class="scout-header">
-                    <strong>${escapeHtml(p.entry_name)}</strong>
-                    <span class="personality-badge ${personalityClass}">${p.personality}</span>
-                  </div>
-                  <div class="scout-body">
-                    <p><strong>Avg Ownership:</strong> ${p.avgOwnership}%</p>
-                    <p><strong>Risk Level:</strong> <span class="risk-${alert.riskLevel?.toLowerCase()}">${alert.riskLevel}</span></p>
-                    <p class="suggestion">💡 ${alert.suggestion}</p>
-                    <div class="gems">
-                      <strong>Unique Gems:</strong> ${alert.uniqueGems?.join(', ') || 'None'}
-                    </div>
-                  </div>
-                </div>
-              `;
-            }).join('')}
+      const personality = data.transferPersonality || [];      
+// Replace the mapping logic inside your render function for Scout Reports
+if (personality.length > 0) {
+  insightsSection.hidden = false;
+  insightsSection.innerHTML = `
+    <h2 class="section-title">Manager Scout Reports</h2>
+    <div class="scout-grid">
+      ${personality.map(p => {
+        // Guard: Find the alert or provide a default object to prevent 'undefined'
+        const alert = alerts.find(a => a.entry_id === p.entry_id) || {
+          riskLevel: 'N/A',
+          suggestion: 'No data available',
+          uniqueGems: []
+        };
+        
+        const personalityClass = p.personality.replace(/\s+/g, '-').toLowerCase();
+        
+        return `
+          <div class="scout-card">
+            <div class="scout-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+              <strong style="color: var(--accent); font-size: 1.1rem;">${escapeHtml(p.entry_name)}</strong>
+              <span class="personality-badge ${personalityClass}">${p.personality}</span>
+            </div>
+            <div class="scout-body">
+              <p style="margin: 0.25rem 0;"><strong>Avg Ownership:</strong> ${p.avgOwnership || 0}%</p>
+              <p style="margin: 0.25rem 0;"><strong>Risk Level:</strong> <span class="risk-${(alert.riskLevel || 'low').toLowerCase()}">${alert.riskLevel}</span></p>
+              <p class="suggestion" style="color: var(--text-muted); font-size: 0.85rem; font-style: italic; border-left: 2px solid var(--surface2); padding-left: 8px; margin: 0.75rem 0;">
+                💡 ${alert.suggestion}
+              </p>
+              <div class="gems" style="margin-top: 0.75rem; font-size: 0.8rem; color: #7ee787;">
+                <strong>Unique Gems:</strong> ${alert.uniqueGems?.length ? alert.uniqueGems.join(', ') : 'None'}
+              </div>
+            </div>
           </div>
         `;
-      }
+      }).join('')}
+    </div>
+  `;
+}
 
       // Transfer Personality table
       const transferPersonality = data.transferPersonality || [];

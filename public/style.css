@@ -73,3 +73,18 @@
   70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(63, 185, 80, 0); }
   100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(63, 185, 80, 0); }
 }
+
+/* Safety styling for missing data */
+.scout-body p:empty::after, 
+.gems:empty::after {
+  content: "Data pending...";
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Ensure cards wrap correctly on mobile */
+@media (max-width: 600px) {
+  .scout-grid {
+    grid-template-columns: 1fr;
+  }
+}

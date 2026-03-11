@@ -133,7 +133,8 @@ app.get('/api/insights/:leagueId', async (req, res) => {
     const entriesToFetch = results.slice(0, MAX_ENTRIES_FOR_HISTORY);
     for (let i = 0; i < entriesToFetch.length; i += BATCH_SIZE) {
       const batch = entriesToFetch.slice(i, i + BATCH_SIZE);
-      const histories = await Promise.all(batch.map(r => fetchEntryHistory(r.id).catch(() => [])));
+      // IMPORTANT: use r.entry (global entry ID) for history
+      const histories = await Promise.all(batch.map(r => fetchEntryHistory(r.entry).catch(() => [])));
       for (let j = 0; j < batch.length; j++) {
         const r = batch[j];
         const current = histories[j] || [];
@@ -152,14 +153,14 @@ app.get('/api/insights/:leagueId', async (req, res) => {
           }
         });
         gwByGw.push({
-          entry_id: r.id,
+          entry_id: r.entry,
           entry_name: r.entry_name,
           player_name: r.player_name,
           rank: r.rank,
           gameweeks: gwPoints
         });
         transferSuccess.push({
-          entry_id: r.id,
+          entry_id: r.entry,
           entry_name: r.entry_name,
           player_name: r.player_name,
           rank: r.rank,
@@ -169,7 +170,7 @@ app.get('/api/insights/:leagueId', async (req, res) => {
           netPoints: (r.total ?? 0) - totalHitCost
         });
         entryHistories.push({
-          entry_id: r.id,
+          entry_id: r.entry,
           entry_name: r.entry_name,
           player_name: r.player_name,
           rank: r.rank,
@@ -186,23 +187,57 @@ app.get('/api/insights/:leagueId', async (req, res) => {
     try {
       const bootstrap = await getBootstrap();
       const { events, elementsOwnership } = bootstrap;
-      const lastGw = lastFinishedGameweek(events);
-      const currentGw = (events.find(e => e.is_current)?.id ?? lastGw) || 1;
+
+      // --- HARDENED PICKS FETCHING ---
+      const lastGw = (events || [])
+        .filter(e => e.finished)
+        .reduce((max, e) => Math.max(max, e.id), 0);
+      const fallbackGw = lastGw > 0 ? lastGw : 1;
+      console.log(`🚀 Starting pick fetch. Target GW: ${fallbackGw}`);
+
       const leagueSize = entryHistories.length;
       const leagueOwnershipCount = {};
       const managerSquads = [];
+
       for (let i = 0; i < entryHistories.length; i += BATCH_SIZE) {
         const batch = entryHistories.slice(i, i + BATCH_SIZE);
-        const picksData = await Promise.all(batch.map(e => fetchEntryPicks(e.entry_id, currentGw).catch(() => null)));
+
+        const picksData = await Promise.all(batch.map(async (e) => {
+          const eid = e.entry_id || e.id;
+          let data = null;
+
+          // Attempt the last 3 weeks in case of FPL maintenance
+          for (let gw = fallbackGw; gw > Math.max(0, fallbackGw - 3); gw--) {
+            try {
+              const attempt = await fetchEntryPicks(eid, gw);
+              if (attempt?.picks?.length > 0) {
+                data = attempt;
+                break;
+              }
+            } catch (err) {
+              if (err.response?.status !== 404) {
+                console.error(`Error fetching GW${gw} for ${eid}:`, err.message);
+              }
+            }
+          }
+          return data;
+        }));
+
         for (let j = 0; j < batch.length; j++) {
           const entry = batch[j];
           const picks = picksData[j]?.picks || [];
+          const actualGw = picksData[j]?.entry_history?.event || 'None';
+
+          console.log(`✅ ${entry.entry_name}: Found ${picks.length} players (Source: GW ${actualGw})`);
+
           const elementIds = picks.map(p => p.element);
           managerSquads.push({ ...entry, elementIds });
+
           elementIds.forEach(eid => {
             leagueOwnershipCount[eid] = (leagueOwnershipCount[eid] || 0) + 1;
           });
         }
+
         if (i + BATCH_SIZE < entryHistories.length) await sleep(BATCH_DELAY_MS);
       }
       const bootstrapEl = bootstrap.elements || {};
@@ -210,7 +245,9 @@ app.get('/api/insights/:leagueId', async (req, res) => {
         const history = m.history || [];
         const last5 = history.slice(-5);
         const transfersLast5 = last5.reduce((s, h) => s + (Number(h.event_transfers) || 0), 0);
-        const ownerships = (m.elementIds || []).map(eid => elementsOwnership[eid] ?? 0).filter(Boolean);
+        const ownerships = (m.elementIds || [])
+          .map(eid => elementsOwnership[Number(eid)] || 0)
+          .filter(val => val > 0);
         const avgOwnership = ownerships.length ? ownerships.reduce((a, b) => a + b, 0) / ownerships.length : 0;
         let personality = 'The Balanced';
         if (transfersLast5 >= 5) personality = 'The Knee-Jerker';
@@ -265,6 +302,27 @@ app.get('/api/insights/:leagueId', async (req, res) => {
       console.error('Personality/differentials error:', e.message);
     }
 
+    // Form / "On Fire" prediction: best rank improvement over last 4 weeks
+    let leagueClimber = null;
+    try {
+      const predictions = transferSuccess.map(m => {
+        const history = entryHistories.find(h => h.entry_id === m.entry_id)?.history || [];
+        if (history.length < 4) {
+          return { ...m, rankChange: 0 };
+        }
+        const currentRank = m.rank;
+        const fourWeeksAgoRank = history[history.length - 4]?.overall_rank || currentRank;
+        const rankChange = fourWeeksAgoRank - currentRank; // positive = climbing
+        return { ...m, rankChange };
+      }).sort((a, b) => (b.rankChange || 0) - (a.rankChange || 0));
+
+      leagueClimber = predictions[0] && (predictions[0].rankChange || 0) > 0
+        ? predictions[0]
+        : null;
+    } catch (e) {
+      console.error('League climber calc error:', e.message);
+    }
+
     res.json({
       league,
       standings: results,
@@ -276,7 +334,13 @@ app.get('/api/insights/:leagueId', async (req, res) => {
         pointsSpread: maxPts - minPts,
         topFive: top,
         bottomFive: bottom,
-        movement: movementCounts
+        movement: movementCounts,
+        leagueClimber: leagueClimber
+          ? {
+              name: leagueClimber.entry_name,
+              change: leagueClimber.rankChange
+            }
+          : null
       },
       gwByGw,
       transferSuccess,
