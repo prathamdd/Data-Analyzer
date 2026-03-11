@@ -1,6 +1,7 @@
 # FPL Data-Analyzer & Mini-League Narrator
 
 This project is a full-stack web application designed to provide deeper analytical insights into Fantasy Premier League (FPL) mini-leagues than the official interface allows. It features automated "Scout Reports," rank progress visualizations, and AI-generated sports commentary based on live league standings.
+Live Link: https://fpl-analyzer-vg6m.onrender.com
 
 ---
 
