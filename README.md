@@ -1,49 +1,32 @@
-# FPL League Analyzer
+This project is a full-stack web application designed to provide deeper analytical insights into FPL mini-leagues than the official interface allows. It features automated "Scout Reports," rank progress visualizations, and AI-generated sports commentary based on live league standings.
 
-A simple Fantasy Premier League analyzer that shows standings and insights for your classic league.
+Technical Stack
+Backend: Node.js, Express.js
 
-Run it
+Frontend: Vanilla JavaScript (ES6+), HTML5, CSS3 (Modern Grid/Flexbox)
 
-```bash
-npm start
-```
+Data Visualization: Chart.js
 
-Open [http://localhost:3000](http://localhost:3000), enter your **league ID**, and click **Analyze league**.
+API Integration: Fantasy Premier League (FPL) REST API
 
-## Finding your league ID
+AI Engine: Google Gemini 2.0 Flash
 
-1. Go to [fantasy.premierleague.com](https://fantasy.premierleague.com)
-2. Open **Leagues & Cups** and select your classic league
-3. The league ID is in the URL: `.../leagues/12345/standings` → league ID is **12345**
+Deployment: Render (CI/CD via GitHub)
 
-## What you get
+Engineering Highlights
+Asynchronous Data Ingestion: Implemented a batched, asynchronous retry-logic system to handle FPL API synchronization delays and rate-limiting.
 
-- **Standings** – rank, team name, manager, total points, gameweek points, movement
-- **GW-by-GW points** – points per gameweek for each manager
-- **Transfer success** – hit cost, net points, number of hits
-- **Captaincy success** – your captain picks and points (enter your entry ID)
-- **Mini-League Narrator** – AI “Sports Center” style commentary (needs API key below)
-- **Transfer Personality** – Knee-Jerker / Diamond Hands / Template Slave (last 5 GW)
-- **Differential heatmap** – ownership in your mini-league (green = differential, red = template)
-- Full league support (all pages of standings are fetched)
+Predictive Form Engine: Developed an algorithm to calculate "Form" by analyzing historical rank data over a 4-week rolling window.
 
-## Deploy as a real website (Render)
+Defensive Programming: Built a robust data-binding layer that maps disparate ID structures (Global Entry IDs vs. Mini-League IDs) and provides fallbacks for stale data points.
 
-1. **Push your code to GitHub** (if you haven’t already).
-2. Go to [render.com](https://render.com) and sign up (free).
-3. Click **New** → **Web Service**.
-4. Connect your GitHub account and select the `fpl-analyzer` repo.
-5. Use these settings:
-   - **Name:** `fpl-analyzer` (or any name)
-   - **Runtime:** Node
-   - **Build command:** `npm install`
-   - **Start command:** `npm start`
-6. Click **Create Web Service**. Render will build and deploy.
-7. When it’s done, you’ll get a URL like `https://fpl-analyzer-xxxx.onrender.com` — that’s your live site.
+UI/UX Micro-interactions: Designed a dark-themed dashboard with "Live" status indicators using CSS keyframe animations and responsive layouts.
 
-**Note:** On the free tier the app may “spin down” after 15 minutes of no traffic; the first visit after that can take ~30 seconds to wake up.
+Features
+Manager Scout Reports: Automated personality tagging (e.g., "The Knee-Jerker," "The Diamond Hands") based on transfer history and ownership percentage.
 
-## Tech
+Rank Progress Chart: Visual tracking of the Top 5 managers' rank history using an inverted Y-axis for intuitive sports data representation.
 
-- **Backend**: Node + Express, proxies FPL’s public API and computes insights
-- **Frontend**: Single HTML page, no build step
+Differential Heatmap: Visualizes player ownership within the mini-league to identify tactical vulnerabilities.
+
+AI Sports Narrator: Uses LLMs to generate witty, "Sports Center"-style commentary based on current league standings.
