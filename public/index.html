@@ -514,16 +514,13 @@
       } else {
         transferSection.hidden = true;
       }
-      // --- NEW: Manager Insights & Optimization (Pillar 2 & 3) ---
       const personality = data.transferPersonality || [];      
-// Replace the mapping logic inside your render function for Scout Reports
 if (personality.length > 0) {
   insightsSection.hidden = false;
   insightsSection.innerHTML = `
     <h2 class="section-title">Manager Scout Reports</h2>
     <div class="scout-grid">
       ${personality.map(p => {
-        // Guard: Find the alert or provide a default object to prevent 'undefined'
         const alert = alerts.find(a => a.entry_id === p.entry_id) || {
           riskLevel: 'N/A',
           suggestion: 'No data available',

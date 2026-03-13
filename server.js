@@ -126,14 +126,15 @@ app.get('/api/insights/:leagueId', async (req, res) => {
       return acc;
     }, {});
 
-    // GW-by-GW and transfer success: fetch entry history for each manager (batched)
+    // GW-by-GW and transfer success
     let gwByGw = [];
     let transferSuccess = [];
     const entryHistories = []; // { entry_id, entry_name, player_name, rank, history }
     const entriesToFetch = results.slice(0, MAX_ENTRIES_FOR_HISTORY);
     for (let i = 0; i < entriesToFetch.length; i += BATCH_SIZE) {
       const batch = entriesToFetch.slice(i, i + BATCH_SIZE);
-      // IMPORTANT: use r.entry (global entry ID) for history
+
+      // using global entry ID
       const histories = await Promise.all(batch.map(r => fetchEntryHistory(r.entry).catch(() => [])));
       for (let j = 0; j < batch.length; j++) {
         const r = batch[j];
@@ -180,7 +181,7 @@ app.get('/api/insights/:leagueId', async (req, res) => {
       if (i + BATCH_SIZE < entriesToFetch.length) await sleep(BATCH_DELAY_MS);
     }
 
-    // Transfer personality & differentials: need current squad (picks) and bootstrap ownership
+    // Transfer personality & differentials
     let transferPersonality = [];
     let differentials = [];
     let optimizationAlerts = [];
@@ -188,7 +189,6 @@ app.get('/api/insights/:leagueId', async (req, res) => {
       const bootstrap = await getBootstrap();
       const { events, elementsOwnership } = bootstrap;
 
-      // --- HARDENED PICKS FETCHING ---
       const lastGw = (events || [])
         .filter(e => e.finished)
         .reduce((max, e) => Math.max(max, e.id), 0);
@@ -264,12 +264,12 @@ app.get('/api/insights/:leagueId', async (req, res) => {
         });
       }
       optimizationAlerts = managerSquads.map(m => {
-        // 1. Find "Unique Gems" (Players in their squad with < 5% global ownership)
+        // Find "Unique Gems" (Players in their squad with < 5% global ownership)
         const uniqueGems = (m.elementIds || [])
           .filter(eid => (elementsOwnership[eid] || 0) < 5)
           .map(id => bootstrapEl[id] || `#${id}`);
         
-        // 2. Find "Danger Players" (Owned by > 80% of YOUR league, but NOT this manager)
+        // Find "Danger Players" (Owned by > 80% of YOUR league, but NOT this manager)
         const missedTemplateIds = Object.keys(leagueOwnershipCount).filter(eid => {
           const leaguePct = (leagueOwnershipCount[eid] / leagueSize);
           const managerDoesNotOwn = !m.elementIds.includes(Number(eid));
@@ -302,7 +302,7 @@ app.get('/api/insights/:leagueId', async (req, res) => {
       console.error('Personality/differentials error:', e.message);
     }
 
-    // Form / "On Fire" prediction: best rank improvement over last 4 weeks
+    // Best rank improvement over last 4 weeks
     let leagueClimber = null;
     try {
       const predictions = transferSuccess.map(m => {
@@ -492,18 +492,16 @@ app.listen(PORT, () => {
   console.log(`FPL Analyzer running at http://localhost:${PORT}`);
 });
 
-// Add this helper function to your server.js
 async function calculateGhostScore(entryId, bootstrapElements) {
   try {
-    // 1. Get the squad from Gameweek 1
+    // Get the squad from Gameweek 1
     const gw1Picks = await fetchEntryPicks(entryId, 1);
     const ghostPlayerIds = gw1Picks.picks.map(p => p.element);
     const captainId = gw1Picks.picks.find(p => p.is_captain).element;
 
     let ghostTotal = 0;
     
-    // 2. Fetch history for each player in that GW1 squad
-    // (Note: In a real app, you'd want to cache these player histories!)
+    // Fetch history for each player in that GW1 squad
     for (const pid of ghostPlayerIds) {
       const history = await fetchElementSummary(pid);
       const playerSeasonPoints = history.reduce((sum, gw) => sum + (gw.total_points || 0), 0);
