@@ -6,7 +6,7 @@ A high-performance analytics dashboard designed to solve "Choice Overload" in Fa
 
 ---
 
-## Product Strategy (PM Case Study)
+## Product Strategy 
 
 * **Problem Identification:** Official FPL interfaces focus on static standings, leaving managers with "Analysis Paralysis" regarding transfer risks and template dependency.
 * **Solution:** Built a data-driven "Scout" system that translates complex metrics (ICT Index, Ownership, Form) into qualitative insights.
