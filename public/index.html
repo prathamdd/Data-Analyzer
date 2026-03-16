@@ -374,16 +374,24 @@
       setLoading(true);
       try {
         const res = await fetch(`/api/insights/${encodeURIComponent(id)}`);
-        const data = await res.json();
+        const text = await res.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (parseErr) {
+          showError(!res.ok ? `Server error (${res.status}): ${text.slice(0, 200)}` : 'Server returned invalid JSON.');
+          return;
+        }
         if (!res.ok) {
-          showError(data.error || 'Failed to load league');
+          showError(data.error || `Server error (${res.status})`);
           return;
         }
         render(data);
         resultsEl.hidden = false;
         startAutoRefresh(id);
       } catch (e) {
-        showError('Network error. Is the server running? Try http://localhost:3000');
+        const msg = (e && (e.message || e.toString)) ? (e.message || e.toString()) : String(e);
+        showError(msg.includes('fetch') ? `Network error: ${msg}` : `Error: ${msg}`);
       } finally {
         setLoading(false);
       }
@@ -636,31 +644,6 @@ if (personality.length > 0) {
         aiRecSection.hidden = true;
       }
     }
-
-    narrateBtn.addEventListener('click', async () => {
-      const leagueId = leagueIdEl.value.trim();
-      if (!leagueId) return;
-      narratorText.textContent = 'Generating commentary…';
-      narratorText.className = 'narrator-text narrator-loading';
-      try {
-        const res = await fetch('/api/narrate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ leagueId })
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          narratorText.textContent = data.error || 'Failed to generate commentary.';
-          narratorText.className = 'narrator-text narrator-error';
-          return;
-        }
-        narratorText.textContent = data.commentary || 'No commentary generated.';
-        narratorText.className = 'narrator-text';
-      } catch (e) {
-        narratorText.textContent = 'Network error.';
-        narratorText.className = 'narrator-text narrator-error';
-      }
-    });
 
     captainBtn.addEventListener('click', async () => {
       const id = entryIdEl.value.trim();
