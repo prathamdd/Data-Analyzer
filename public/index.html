@@ -154,6 +154,22 @@
     }
     .help a { color: var(--accent); text-decoration: none; }
     .help a:hover { text-decoration: underline; }
+    .sample-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.4);
+      cursor: pointer;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      background: rgba(15,23,42,0.8);
+    }
+    .sample-chip span {
+      font-weight: 600;
+      color: var(--accent);
+    }
     .section-title {
       font-size: 1.02rem;
       font-weight: 600;
@@ -236,7 +252,12 @@
       <input type="text" id="leagueId" placeholder="e.g. 314" autocomplete="off">
       <button type="button" id="fetchBtn">Analyze league</button>
     </div>
-    <p class="help">Find your league ID in the URL when you open your league on <a href="https://fantasy.premierleague.com" target="_blank" rel="noopener">fantasy.premierleague.com</a> (Leagues → your league).</p>
+    <p class="help">
+      Find your league ID in the URL when you open your league on
+      <a href="https://fantasy.premierleague.com" target="_blank" rel="noopener">fantasy.premierleague.com</a>
+      (Leagues → your league).
+      <button type="button" id="sampleBtn" class="sample-chip">Try sample league <span>716248</span></button>
+    </p>
     <div id="error" class="error" hidden></div>
     <div id="loading" class="loading" hidden>Loading league, GW-by-GW & transfer data… (may take a few seconds)</div>
     <div id="results" hidden>
@@ -311,6 +332,7 @@
     const insightsSection = document.getElementById('insightsSection');
     const leagueIdEl = document.getElementById('leagueId');
     const fetchBtn = document.getElementById('fetchBtn');
+    const sampleBtn = document.getElementById('sampleBtn');
     const errorEl = document.getElementById('error');
     const loadingEl = document.getElementById('loading');
     const resultsEl = document.getElementById('results');
@@ -337,6 +359,10 @@
       errorEl.hidden = false;
       resultsEl.hidden = true;
     }
+    sampleBtn?.addEventListener('click', () => {
+      leagueIdEl.value = '716248';
+      fetchBtn.click();
+    });
     function hideError() {
       errorEl.hidden = true;
     }
