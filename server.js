@@ -1,3 +1,4 @@
+require('dotenv').config(); // load .env before anything else
 const express = require('express');
 const axios = require('axios');
 const path = require('path');
@@ -35,9 +36,27 @@ async function getBootstrap() {
     elements[el.id] = el.web_name || `#${el.id}`;
     elementsOwnership[el.id] = parseFloat(el.selected_by_percent) || 0;
   });
-  bootstrapCache = { events, elements, elementsOwnership };
+  bootstrapCache = { events, elements, elementsOwnership, rawElements: data.elements || [] };
   bootstrapCacheTime = Date.now();
   return bootstrapCache;
+}
+
+function getRecommendations(bootstrap) {
+  const players = bootstrap.rawElements || [];
+  return players
+    .map(p => {
+      const form = parseFloat(p.form) || 0;
+      const ict = parseFloat(p.ict_index) || 0;
+      const price = (p.now_cost || 0) / 10;
+      const valueScore = (form * 0.5) + (ict * 0.3) - (price * 0.2);
+      return {
+        name: p.web_name,
+        score: Number.isFinite(valueScore) ? valueScore : 0,
+        reason: form > 5 ? 'Elite Form' : 'High ICT Impact'
+      };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
 }
 
 function lastFinishedGameweek(events) {
@@ -185,6 +204,7 @@ app.get('/api/insights/:leagueId', async (req, res) => {
     let transferPersonality = [];
     let differentials = [];
     let optimizationAlerts = [];
+    let aiRecommendations = [];
     try {
       const bootstrap = await getBootstrap();
       const { events, elementsOwnership } = bootstrap;
@@ -264,25 +284,32 @@ app.get('/api/insights/:leagueId', async (req, res) => {
         });
       }
       optimizationAlerts = managerSquads.map(m => {
-        // Find "Unique Gems" (Players in their squad with < 5% global ownership)
+        // Unique gems: players in squad with < 5% global ownership
         const uniqueGems = (m.elementIds || [])
           .filter(eid => (elementsOwnership[eid] || 0) < 5)
           .map(id => bootstrapEl[id] || `#${id}`);
-        
-        // Find "Danger Players" (Owned by > 80% of YOUR league, but NOT this manager)
-        const missedTemplateIds = Object.keys(leagueOwnershipCount).filter(eid => {
-          const leaguePct = (leagueOwnershipCount[eid] / leagueSize);
-          const managerDoesNotOwn = !m.elementIds.includes(Number(eid));
-          return leaguePct > 0.8 && managerDoesNotOwn;
-        });
+
+        // Pull personality row for this manager
+        const personalityRow = transferPersonality.find(p => p.entry_id === m.entry_id);
+        const avgOwnership = personalityRow?.avgOwnership || 0;
+        const transferCount = personalityRow?.transfersLast5 || 0;
+
+        let riskLevel = 'Low';
+        let suggestion = 'Squad is stable and follows the template.';
+
+        if (avgOwnership > 45 && transferCount > 2) {
+          riskLevel = 'High';
+          suggestion = 'High volatility: Aggressive transfers and heavy template reliance detected.';
+        } else if (avgOwnership > 35 || transferCount > 1) {
+          riskLevel = 'Medium';
+          suggestion = 'Balanced risk: Watching for template shifts.';
+        }
 
         return {
           entry_id: m.entry_id,
-          uniqueGems: uniqueGems.slice(0, 3), // Top 3 unique players
-          riskLevel: missedTemplateIds.length > 2 ? 'High' : (missedTemplateIds.length > 0 ? 'Medium' : 'Low'),
-          suggestion: missedTemplateIds.length > 0 
-            ? `Rivals are pulling away with ${bootstrapEl[missedTemplateIds[0]]}` 
-            : 'Squad is well-protected against rivals'
+          riskLevel,
+          suggestion,
+          uniqueGems: uniqueGems.slice(0, 3)
         };
       });
       const playerIds = Object.keys(leagueOwnershipCount);
@@ -298,6 +325,9 @@ app.get('/api/insights/:leagueId', async (req, res) => {
           global_ownership_pct: globalPct
         };
       }).sort((a, b) => a.league_ownership_count - b.league_ownership_count);
+
+      // AI-style transfer recommendations based on form + ICT + price
+      aiRecommendations = getRecommendations(bootstrap);
     } catch (e) {
       console.error('Personality/differentials error:', e.message);
     }
@@ -340,7 +370,8 @@ app.get('/api/insights/:leagueId', async (req, res) => {
               name: leagueClimber.entry_name,
               change: leagueClimber.rankChange
             }
-          : null
+          : null,
+        aiRecommendations
       },
       gwByGw,
       transferSuccess,
@@ -359,33 +390,47 @@ app.get('/api/insights/:leagueId', async (req, res) => {
 // Mini-League Narrator: AI Sports Center–style commentary (OpenAI or Gemini)
 app.post('/api/narrate', async (req, res) => {
   try {
-    const { leagueId } = req.body || {};
-    if (!leagueId) {
-      return res.status(400).json({ error: 'leagueId required' });
-    }
-    const { league, results } = await fetchFullLeagueStandings(leagueId);
-    if (!results.length) {
-      return res.status(400).json({ error: 'No league data' });
-    }
-    const top = results.slice(0, 3).map(r => ({
-      rank: r.rank,
-      team: r.entry_name,
-      manager: r.player_name,
-      total: r.total,
-      gwPts: r.event_total
-    }));
-    const bottom = results.slice(-3).reverse().map(r => ({
-      rank: r.rank,
-      team: r.entry_name,
-      manager: r.player_name,
-      total: r.total,
-      gwPts: r.event_total
-    }));
-    const dataBlob = JSON.stringify({ leagueName: league?.name, top, bottom }, null, 0);
-    const prompt = `You are a witty Fantasy Premier League commentator. Based on this mini-league data, write exactly 3 short sentences in "Sports Center" style: trash talk the strugglers and hype the leaders. Be funny and specific (use team names). No preamble, no bullet points—just 3 sentences.\n\nData:\n${dataBlob}`;
-
-    const openaiKey = process.env.OPENAI_API_KEY;
+    const { leagueId, leagueData } = req.body || {};
     const geminiKey = process.env.GEMINI_API_KEY;
+    const openaiKey = process.env.OPENAI_API_KEY;
+
+    if (!geminiKey && !openaiKey) {
+      console.error('❌ ERROR: GEMINI_API_KEY / OPENAI_API_KEY missing from process.env');
+      return res.json({
+        commentary: 'AI narration is disabled. Please check the server .env configuration.'
+      });
+    }
+
+    let dataForPrompt = leagueData;
+    if (!dataForPrompt) {
+      if (!leagueId) {
+        return res.status(400).json({ error: 'leagueId or leagueData required' });
+      }
+      const { league, results } = await fetchFullLeagueStandings(leagueId);
+      if (!results.length) {
+        return res.status(400).json({ error: 'No league data' });
+      }
+      const top = results.slice(0, 3).map(r => ({
+        rank: r.rank,
+        team: r.entry_name,
+        manager: r.player_name,
+        total: r.total,
+        gwPts: r.event_total
+      }));
+      const bottom = results.slice(-3).reverse().map(r => ({
+        rank: r.rank,
+        team: r.entry_name,
+        manager: r.player_name,
+        total: r.total,
+        gwPts: r.event_total
+      }));
+      dataForPrompt = { leagueName: league?.name, top, bottom };
+    }
+
+    console.log('🤖 AI Narrative requested for:', dataForPrompt.leagueName || 'Unknown league');
+
+    const dataBlob = JSON.stringify(dataForPrompt, null, 0);
+    const prompt = `You are a witty Fantasy Premier League commentator. Based on this mini-league data, write exactly 3 short sentences in "Sports Center" style: trash talk the strugglers and hype the leaders. Be funny and specific (use team names). No preamble, no bullet points—just 3 sentences.\n\nData:\n${dataBlob}`;
 
     if (openaiKey) {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -403,12 +448,13 @@ app.post('/api/narrate', async (req, res) => {
       const data = await response.json();
       if (data.error) throw new Error(data.error.message || 'OpenAI error');
       const text = data.choices?.[0]?.message?.content?.trim() || 'No commentary generated.';
+      console.log('✅ AI Response received from OpenAI');
       return res.json({ commentary: text });
     }
 
     if (geminiKey) {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -421,6 +467,7 @@ app.post('/api/narrate', async (req, res) => {
       const data = await response.json();
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 'No commentary generated.';
       if (data.error) throw new Error(data.error.message || 'Gemini error');
+      console.log('✅ AI Response received from Gemini');
       return res.json({ commentary: text });
     }
 
@@ -428,7 +475,7 @@ app.post('/api/narrate', async (req, res) => {
       error: 'Set OPENAI_API_KEY or GEMINI_API_KEY in environment to enable AI commentary.'
     });
   } catch (error) {
-    console.error('Narrator error:', error.message);
+    console.error('❌ AI Error:', error.message);
     res.status(500).json({ error: error.message || 'Failed to generate commentary' });
   }
 });

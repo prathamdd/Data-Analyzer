@@ -395,9 +395,19 @@
       if (insights && !insights.error) {
         const climberName = insights.leagueClimber?.name || 'N/A';
         const climberChange = insights.leagueClimber?.change || 0;
+        const recs = insights.aiRecommendations || [];
+        const topRec = recs[0];
+        const aiText = topRec
+          ? `${topRec.name} (${topRec.reason})`
+          : 'Scan league to see picks';
         insightsGrid.innerHTML = `
           <div class="stat-card"><div class="label">Managers</div><div class="value">${insights.totalManagers}</div></div>
           <div class="stat-card"><div class="label">Average pts</div><div class="value">${insights.averagePoints}</div></div>
+          <div class="stat-card">
+            <div class="label">AI Recommendation 🤖</div>
+            <div id="aiRec" class="value" style="font-size: 1rem; color: var(--gold);">${aiText}</div>
+            <div class="help">Based on Form + ICT Index</div>
+          </div>
           <div class="stat-card">
             <div class="label">On Fire 🔥</div>
             <div class="value" style="font-size: 1rem;">${climberName}</div>
