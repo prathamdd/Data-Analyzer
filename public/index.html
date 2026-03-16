@@ -291,13 +291,6 @@
       <h2 class="section-title">Transfer success</h2>
       <div id="transferSection" class="standings-wrap" hidden></div>
 
-      <h2 class="section-title">Mini-League Narrator</h2>
-      <div class="narrator-box">
-        <p class="help">AI commentary on your league (top vs bottom). Set OPENAI_API_KEY or GEMINI_API_KEY on the server to enable.</p>
-        <button type="button" id="narrateBtn" class="search button" style="margin-bottom: 1rem;">Generate Sports Center commentary</button>
-        <div id="narratorOut"><p class="narrator-text narrator-loading" id="narratorText">Click the button to generate.</p></div>
-      </div>
-
       <h2 class="section-title">Transfer Personality</h2>
       <p class="help">Manager style over the last 5 gameweeks: Knee-Jerker (lots of transfers), Diamond Hands (holds), Template Slave (high ownership squad).</p>
       <div id="personalitySection" class="standings-wrap" hidden></div>
@@ -305,6 +298,13 @@
       <h2 class="section-title">Differential heatmap</h2>
       <p class="help">Ownership in your mini-league. Green = differential (few own), red = template (many own).</p>
       <div id="differentialsSection" class="heatmap-grid" hidden></div>
+
+      <h2 class="section-title">AI transfer recommendations</h2>
+      <p class="help">
+        Suggested buys for managers in this mini-league, based on current Form, ICT Index and price efficiency.
+        This is a league-level view – useful for anyone trying to climb.
+      </p>
+      <div id="aiRecSection" class="standings-wrap" hidden></div>
 
       <div class="captain-section">
         <h2 class="section-title">Captaincy success</h2>
@@ -347,11 +347,9 @@
     const captainResults = document.getElementById('captainResults');
     const captainStats = document.getElementById('captainStats');
     const captainBody = document.getElementById('captainBody');
-    const narrateBtn = document.getElementById('narrateBtn');
-    const narratorText = document.getElementById('narratorText');
-    const narratorOut = document.getElementById('narratorOut');
     const personalitySection = document.getElementById('personalitySection');
     const differentialsSection = document.getElementById('differentialsSection');
+    const aiRecSection = document.getElementById('aiRecSection');
     let rankChart = null;
 
     function showError(msg) {
@@ -421,19 +419,9 @@
       if (insights && !insights.error) {
         const climberName = insights.leagueClimber?.name || 'N/A';
         const climberChange = insights.leagueClimber?.change || 0;
-        const recs = insights.aiRecommendations || [];
-        const topRec = recs[0];
-        const aiText = topRec
-          ? `${topRec.name} (${topRec.reason})`
-          : 'Scan league to see picks';
         insightsGrid.innerHTML = `
           <div class="stat-card"><div class="label">Managers</div><div class="value">${insights.totalManagers}</div></div>
           <div class="stat-card"><div class="label">Average pts</div><div class="value">${insights.averagePoints}</div></div>
-          <div class="stat-card">
-            <div class="label">AI Recommendation 🤖</div>
-            <div id="aiRec" class="value" style="font-size: 1rem; color: var(--gold);">${aiText}</div>
-            <div class="help">Based on Form + ICT Index</div>
-          </div>
           <div class="stat-card">
             <div class="label">On Fire 🔥</div>
             <div class="value" style="font-size: 1rem;">${climberName}</div>
@@ -634,6 +622,40 @@ if (personality.length > 0) {
         }).join('');
       } else {
         differentialsSection.hidden = true;
+      }
+
+      // AI transfer recommendations section
+      const recs = insights.aiRecommendations || [];
+      if (recs.length > 0) {
+        aiRecSection.hidden = false;
+        aiRecSection.innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th>Value score</th>
+                <th>Form</th>
+                <th>ICT index</th>
+                <th>Price</th>
+                <th>Why</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${recs.map(r => `
+                <tr>
+                  <td>${escapeHtml(r.name)}</td>
+                  <td>${r.score.toFixed ? r.score.toFixed(2) : r.score}</td>
+                  <td>${r.form ?? '—'}</td>
+                  <td>${r.ict ?? '—'}</td>
+                  <td>£${r.price?.toFixed ? r.price.toFixed(1) : r.price}</td>
+                  <td>${escapeHtml(r.reason || '')}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } else {
+        aiRecSection.hidden = true;
       }
     }
 

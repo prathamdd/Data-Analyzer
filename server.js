@@ -51,7 +51,10 @@ function getRecommendations(bootstrap) {
       const valueScore = (form * 0.5) + (ict * 0.3) - (price * 0.2);
       return {
         name: p.web_name,
-        score: Number.isFinite(valueScore) ? valueScore : 0,
+        score: Number.isFinite(valueScore) ? Number(valueScore.toFixed(2)) : 0,
+        form,
+        ict,
+        price,
         reason: form > 5 ? 'Elite Form' : 'High ICT Impact'
       };
     })
@@ -384,99 +387,6 @@ app.get('/api/insights/:leagueId', async (req, res) => {
     res.status(error.response?.status || 500).json({
       error: error.response?.data?.detail || 'Failed to fetch league insights'
     });
-  }
-});
-
-// Mini-League Narrator: AI Sports Center–style commentary (OpenAI or Gemini)
-app.post('/api/narrate', async (req, res) => {
-  try {
-    const { leagueId, leagueData } = req.body || {};
-    const geminiKey = process.env.GEMINI_API_KEY;
-    const openaiKey = process.env.OPENAI_API_KEY;
-
-    if (!geminiKey && !openaiKey) {
-      console.error('❌ ERROR: GEMINI_API_KEY / OPENAI_API_KEY missing from process.env');
-      return res.json({
-        commentary: 'AI narration is disabled. Please check the server .env configuration.'
-      });
-    }
-
-    let dataForPrompt = leagueData;
-    if (!dataForPrompt) {
-      if (!leagueId) {
-        return res.status(400).json({ error: 'leagueId or leagueData required' });
-      }
-      const { league, results } = await fetchFullLeagueStandings(leagueId);
-      if (!results.length) {
-        return res.status(400).json({ error: 'No league data' });
-      }
-      const top = results.slice(0, 3).map(r => ({
-        rank: r.rank,
-        team: r.entry_name,
-        manager: r.player_name,
-        total: r.total,
-        gwPts: r.event_total
-      }));
-      const bottom = results.slice(-3).reverse().map(r => ({
-        rank: r.rank,
-        team: r.entry_name,
-        manager: r.player_name,
-        total: r.total,
-        gwPts: r.event_total
-      }));
-      dataForPrompt = { leagueName: league?.name, top, bottom };
-    }
-
-    console.log('🤖 AI Narrative requested for:', dataForPrompt.leagueName || 'Unknown league');
-
-    const dataBlob = JSON.stringify(dataForPrompt, null, 0);
-    const prompt = `You are a witty Fantasy Premier League commentator. Based on this mini-league data, write exactly 3 short sentences in "Sports Center" style: trash talk the strugglers and hype the leaders. Be funny and specific (use team names). No preamble, no bullet points—just 3 sentences.\n\nData:\n${dataBlob}`;
-
-    if (openaiKey) {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${openaiKey}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'user', content: prompt }],
-          max_tokens: 200
-        })
-      });
-      const data = await response.json();
-      if (data.error) throw new Error(data.error.message || 'OpenAI error');
-      const text = data.choices?.[0]?.message?.content?.trim() || 'No commentary generated.';
-      console.log('✅ AI Response received from OpenAI');
-      return res.json({ commentary: text });
-    }
-
-    if (geminiKey) {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { maxOutputTokens: 200 }
-          })
-        }
-      );
-      const data = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 'No commentary generated.';
-      if (data.error) throw new Error(data.error.message || 'Gemini error');
-      console.log('✅ AI Response received from Gemini');
-      return res.json({ commentary: text });
-    }
-
-    return res.status(400).json({
-      error: 'Set OPENAI_API_KEY or GEMINI_API_KEY in environment to enable AI commentary.'
-    });
-  } catch (error) {
-    console.error('❌ AI Error:', error.message);
-    res.status(500).json({ error: error.message || 'Failed to generate commentary' });
   }
 });
 
