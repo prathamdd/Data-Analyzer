@@ -9,7 +9,6 @@ A full-stack predictive analytics dashboard that utilizes the Gemini Pro 1.5 API
 ## Tech Stack & Architecture
 * **Frontend:** Vanilla JavaScript / Tailwind CSS (Responsive Dashboard)
 * **Backend:** Node.js / Express.js
-* **AI Engine:** Google Gemini Pro 1.5 (Predictive Form Analysis)
 * **Infrastructure:** Microsoft Azure App Service (West US 3)
 * **CI/CD:** GitHub Actions with Automated Secret Management
 
