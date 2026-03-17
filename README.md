@@ -17,7 +17,7 @@ A full-stack predictive analytics dashboard that utilizes the Gemini Pro 1.5 API
 * **Form Heuristics:** Custom-built logic to calculate player "Expected Points" based on current FPL API data.
 * **Automated Pipeline:** Fully automated deployment pipeline ensures 99.9% consistency between local development and production.
 
-## Product Management Highlights (The "IBM Narrative")
+## Product Management Highlights
 * **Resource Optimization:** Navigated regional cloud quota constraints by migrating workloads across global data centers (US/EU).
 * **Security First:** Implemented a zero-trust credential model using GitHub Secrets and Azure Publish Profiles.
 * **MVP Strategy:** Prioritized a stateless, high-availability launch to validate core analytical features before scaling the data plane.
