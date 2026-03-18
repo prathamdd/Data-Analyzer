@@ -246,67 +246,99 @@
     <div id="results" hidden>
       <div class="league-name" id="leagueName"></div>
       <div id="liveIndicator" class="live-dot" hidden><span></span> Live Data</div>
-      <div id="insightsSection" hidden></div>
-      <h2 class="section-title">Rank Progress (Top 5)</h2>
-      <div class="chart-container" style="position: relative; height:40vh; width:100%; margin-bottom: 2rem;">
-        <canvas id="rankChart"></canvas>
-      </div>
-      <div class="insights-grid" id="insightsGrid"></div>
-      <div class="standings-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Team</th>
-              <th>Manager</th>
-              <th>Total pts</th>
-              <th>GW pts</th>
-              <th>Movement</th>
-            </tr>
-          </thead>
-          <tbody id="standingsBody"></tbody>
-        </table>
-      </div>
+      <div class="app-layout">
+        <nav class="sidebar" aria-label="Sections">
+          <button type="button" class="nav-btn active" data-page="overview">Overview</button>
+          <button type="button" class="nav-btn" data-page="rankProgress">Rank Progress</button>
+          <button type="button" class="nav-btn" data-page="gwByGw">GW by GW</button>
+          <button type="button" class="nav-btn" data-page="transferSuccess">Transfer Success</button>
+          <button type="button" class="nav-btn" data-page="personality">Transfer Personality</button>
+          <button type="button" class="nav-btn" data-page="differentials">Differentials</button>
+          <button type="button" class="nav-btn" data-page="aiRecs">AI Recommendations</button>
+          <button type="button" class="nav-btn" data-page="captaincy">Captaincy</button>
+        </nav>
 
-      <h2 class="section-title">GW by GW points</h2>
-      <div id="gwByGwSection" class="gw-table-wrap" hidden></div>
+        <div class="main">
+          <section class="page active" id="page-overview">
+            <div id="insightsSection" hidden></div>
+            <div class="insights-grid" id="insightsGrid"></div>
+            <div class="standings-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Team</th>
+                    <th>Manager</th>
+                    <th>Total pts</th>
+                    <th>GW pts</th>
+                    <th>Movement</th>
+                  </tr>
+                </thead>
+                <tbody id="standingsBody"></tbody>
+              </table>
+            </div>
+          </section>
 
-      <h2 class="section-title">Transfer success</h2>
-      <div id="transferSection" class="standings-wrap" hidden></div>
+          <section class="page" id="page-rankProgress">
+            <h2 class="section-title">Rank Progress (Top 5)</h2>
+            <div class="chart-container" style="position: relative; height:40vh; width:100%; margin-bottom: 2rem;">
+              <canvas id="rankChart"></canvas>
+            </div>
+          </section>
 
-      <h2 class="section-title">Transfer Personality</h2>
-      <p class="help">Manager style over the last 5 gameweeks: Knee-Jerker (lots of transfers), Diamond Hands (holds), Template Slave (high ownership squad).</p>
-      <div id="personalitySection" class="standings-wrap" hidden></div>
+          <section class="page" id="page-gwByGw">
+            <h2 class="section-title">GW by GW points</h2>
+            <div id="gwByGwSection" class="gw-table-wrap" hidden></div>
+          </section>
 
-      <h2 class="section-title">Differential heatmap</h2>
-      <p class="help">Ownership in your mini-league. Green = differential (few own), red = template (many own).</p>
-      <div id="differentialsSection" class="heatmap-grid" hidden></div>
+          <section class="page" id="page-transferSuccess">
+            <h2 class="section-title">Transfer success</h2>
+            <div id="transferSection" class="standings-wrap" hidden></div>
+          </section>
 
-      <h2 class="section-title">AI transfer recommendations</h2>
-      <p class="help">
-        Suggested buys for managers in this mini-league, based on current Form, ICT Index and price efficiency.
-        This is a league-level view – useful for anyone trying to climb.
-      </p>
-      <div id="aiRecSection" class="standings-wrap" hidden></div>
+          <section class="page" id="page-personality">
+            <h2 class="section-title">Transfer Personality</h2>
+            <p class="help">Manager style over the last 5 gameweeks: Knee-Jerker (lots of transfers), Diamond Hands (holds), Template Slave (high ownership squad).</p>
+            <div id="personalitySection" class="standings-wrap" hidden></div>
+          </section>
 
-      <div class="captain-section">
-        <h2 class="section-title">Captaincy success</h2>
-        <p class="help">Enter your entry ID (same as in the standings URL on FPL) to see your captain picks and points each gameweek.</p>
-        <div class="captain-load">
-          <input type="text" id="entryId" placeholder="Your entry ID" autocomplete="off">
-          <button type="button" id="captainBtn">Load my captaincy</button>
-        </div>
-        <div id="captainLoading" class="loading" hidden>Loading captaincy…</div>
-        <div id="captainResults" hidden>
-          <div class="captain-stats" id="captainStats"></div>
-          <div class="standings-wrap">
-            <table>
-              <thead>
-                <tr><th>GW</th><th>Captain</th><th>Pts</th></tr>
-              </thead>
-              <tbody id="captainBody"></tbody>
-            </table>
-          </div>
+          <section class="page" id="page-differentials">
+            <h2 class="section-title">Differential heatmap</h2>
+            <p class="help">Ownership in your mini-league. Green = differential (few own), red = template (many own).</p>
+            <div id="differentialsSection" class="heatmap-grid" hidden></div>
+          </section>
+
+          <section class="page" id="page-aiRecs">
+            <h2 class="section-title">AI transfer recommendations</h2>
+            <p class="help">
+              Suggested buys for managers in this mini-league, based on current Form, ICT Index and price efficiency.
+              This is a league-level view – useful for anyone trying to climb.
+            </p>
+            <div id="aiRecSection" class="standings-wrap" hidden></div>
+          </section>
+
+          <section class="page" id="page-captaincy">
+            <div class="captain-section">
+              <h2 class="section-title">Captaincy success</h2>
+              <p class="help">Enter your entry ID (same as in the standings URL on FPL) to see your captain picks and points each gameweek.</p>
+              <div class="captain-load">
+                <input type="text" id="entryId" placeholder="Your entry ID" autocomplete="off">
+                <button type="button" id="captainBtn">Load my captaincy</button>
+              </div>
+              <div id="captainLoading" class="loading" hidden>Loading captaincy…</div>
+              <div id="captainResults" hidden>
+                <div class="captain-stats" id="captainStats"></div>
+                <div class="standings-wrap">
+                  <table>
+                    <thead>
+                      <tr><th>GW</th><th>Captain</th><th>Pts</th></tr>
+                    </thead>
+                    <tbody id="captainBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
     </div>
@@ -333,6 +365,49 @@
     const differentialsSection = document.getElementById('differentialsSection');
     const aiRecSection = document.getElementById('aiRecSection');
     let rankChart = null;
+
+    const navButtons = Array.from(document.querySelectorAll('.nav-btn[data-page]'));
+
+    function normalizeHashToPageKey() {
+      const raw = (location.hash || '').replace('#', '').trim();
+      if (!raw) return 'overview';
+      if (raw.startsWith('page-')) return raw.slice('page-'.length);
+      return raw;
+    }
+
+    function showPage(pageKey, { updateHash = true } = {}) {
+      const pageEl = document.getElementById(`page-${pageKey}`);
+      if (!pageEl) return;
+
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      pageEl.classList.add('active');
+
+      navButtons.forEach(btn => {
+        const isActive = btn.dataset.page === pageKey;
+        btn.classList.toggle('active', isActive);
+      });
+
+      // If the chart was created while hidden, resize it after showing.
+      if (pageKey === 'rankProgress' && rankChart) {
+        setTimeout(() => {
+          try { rankChart.resize(); } catch (e) { /* ignore */ }
+        }, 0);
+      }
+
+      if (updateHash) location.hash = pageKey;
+    }
+
+    navButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        showPage(btn.dataset.page);
+      });
+    });
+
+    window.addEventListener('hashchange', () => {
+      // Only switch pages once results are on screen.
+      if (!resultsEl || resultsEl.hidden) return;
+      showPage(normalizeHashToPageKey(), { updateHash: false });
+    });
 
     function showError(msg) {
       errorEl.textContent = msg;
@@ -388,6 +463,7 @@
         }
         render(data);
         resultsEl.hidden = false;
+        showPage(normalizeHashToPageKey(), { updateHash: false });
         startAutoRefresh(id);
       } catch (e) {
         const msg = (e && (e.message || e.toString)) ? (e.message || e.toString()) : String(e);
