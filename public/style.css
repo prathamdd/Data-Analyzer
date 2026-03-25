@@ -11,14 +11,14 @@
   border: 1px solid rgba(15,23,42,0.95);
   border-radius: 12px;
   padding: 1.1rem 1.2rem;
-  box-shadow: 0 18px 40px rgba(15,23,42,0.75);
-  transition: transform 0.18s ease-out, box-shadow 0.18s ease-out;
+  box-shadow: none;
+  transition: none;
   color: var(--text);
 }
 
 .scout-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 22px 55px rgba(15,23,42,0.9);
+  transform: none;
+  box-shadow: none;
 }
 
 .personality-badge {
@@ -64,8 +64,8 @@
   height: 8px;
   background: var(--accent);
   border-radius: 50%;
-  box-shadow: 0 0 0 rgba(63, 185, 80, 0.4);
-  animation: pulse 2s infinite;
+  box-shadow: none;
+  animation: none;
 }
 
 @keyframes pulse {
@@ -98,8 +98,8 @@
   width: 230px;
   position: sticky;
   top: 1rem;
-  background: rgba(17, 24, 39, 0.65);
-  border: 1px solid rgba(15, 23, 42, 0.65);
+  background: var(--surface);
+  border: 1px solid rgba(15, 23, 42, 0.9);
   border-radius: 12px;
   padding: 0.75rem;
 }
@@ -112,20 +112,20 @@
   margin: 0.25rem 0;
   border-radius: 10px;
   border: 1px solid rgba(15, 23, 42, 0.35);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.02);
   color: var(--text);
   font-weight: 600;
   cursor: pointer;
 }
 
 .nav-btn:hover {
-  border-color: rgba(56, 189, 248, 0.55);
-  background: rgba(56, 189, 248, 0.07);
+  border-color: rgba(15, 23, 42, 0.55);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .nav-btn.active {
-  border-color: rgba(56, 189, 248, 0.65);
-  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.45);
+  background: rgba(56, 189, 248, 0.06);
   color: var(--accent);
 }
 
