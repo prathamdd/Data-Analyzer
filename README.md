@@ -1,4 +1,4 @@
-# FPL Analyzer: AI-Driven Fantasy Premier League Analytics
+# FPL Analyzer: Fantasy Premier League Analytics
 
 A full-stack predictive analytics dashboard that provides deep-dive scout reports for FPL managers. Built for the dual purpose of dominating mini-leagues and exploring cloud-native architecture.
 
