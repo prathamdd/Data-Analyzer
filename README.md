@@ -2,8 +2,6 @@
 
 A full-stack predictive analytics dashboard that provides deep-dive scout reports for FPL managers. Built for the dual purpose of dominating mini-leagues and exploring cloud-native architecture.
 
-**Live Site:** [https://fpl-analyzer-fef3b0g7gqf6akcm.westus3-01.azurewebsites.net/](https://fpl-analyzer-fef3b0g7gqf6akcm.westus3-01.azurewebsites.net/)
-
 ---
 
 ## Tech Stack & Architecture
